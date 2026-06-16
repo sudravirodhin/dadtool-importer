@@ -1,0 +1,119 @@
+"""Look up a clean Song Name + Artist for an audio file, to fill the in-game menu.
+
+Order: embedded tags (mutagen) -> cleaned filename. An online fingerprint lookup
+(AcoustID/MusicBrainz) is an optional future layer for messy YouTube-rip names.
+"""
+from __future__ import annotations
+
+import re
+from pathlib import Path
+
+_JUNK = [
+    r"\(Official[^)]*\)", r"\[[^\]]*\]", r"\([^)]*Lyric[^)]*\)",
+    r"\([^)]*Visuali[sz]er[^)]*\)", r"\(Audio\)", r"\(HD[^)]*\)", r"\(4K[^)]*\)",
+    r"\(Remastered[^)]*\)", r"Official Music Video", r"Official Video",
+    r"\bHQ\b", r"\bHD\b", r"\bMV\b",
+]
+
+
+def from_tags(path) -> tuple[str | None, str | None]:
+    try:
+        from mutagen import File as MF
+        f = MF(str(path), easy=True)
+    except Exception:  # noqa: BLE001
+        return None, None
+    if not f:
+        return None, None
+
+    def g(key):
+        v = f.get(key)
+        return v[0].strip() if v and v[0].strip() else None
+
+    return g("title"), g("artist")
+
+
+def from_acoustid(path) -> tuple[str | None, str | None]:
+    """Canonical (title, artist) via AcoustID audio fingerprint -> MusicBrainz.
+    Needs acoustid_api_key + fpcalc_path in dad_config.json. Returns (None, None)
+    on any miss/error so callers can fall back."""
+    import os
+
+    from . import paths
+    cfg = paths.load_config()
+    key = cfg.get("acoustid_api_key")
+    if not key:
+        return None, None
+    try:
+        import acoustid
+        if cfg.get("fpcalc_path"):
+            os.environ["FPCALC"] = cfg["fpcalc_path"]
+        results = list(acoustid.match(key, str(path)))
+    except Exception:  # noqa: BLE001  (network/key/fingerprint failure -> fall back)
+        return None, None
+    if not results:
+        return None, None
+    top = max(s for s, *_ in results)
+    if top < 0.5:  # weak fingerprint match -> don't trust it
+        return None, None
+    # one fingerprint can link to many MB recordings (some wrong); take the consensus
+    from collections import Counter
+    votes: Counter = Counter()
+    for score, _rid, title, artist in results:
+        if title and score >= top - 0.05:
+            votes[(title.strip(), (artist or "").strip())] += 1
+    if not votes:
+        return None, None
+    (title, artist), _ = votes.most_common(1)[0]
+    return title, (artist or None)
+
+
+def _clean(raw: str) -> str:
+    for j in _JUNK:
+        raw = re.sub(j, "", raw, flags=re.I)
+    return re.sub(r"\s{2,}", " ", raw).strip(" -–—_")
+
+
+def _looks_like_channel(artist: str) -> bool:
+    a = artist.strip().lower()
+    return a.endswith("vevo") or a.endswith("- topic") or a.endswith("official") or "records" in a
+
+
+def lookup(path) -> tuple[str, str]:
+    """Best-effort (title, artist) for the in-game menu. Uses tag title/artist but
+    ignores channel-style artists (VEVO/Topic/Official) and strips video cruft;
+    falls back to splitting an 'Artist - Title' name. AcoustID (audio fingerprint)
+    is tried first for canonical names; use --name/--artist to override."""
+    at, aa = from_acoustid(path)
+    if at:
+        return at, (aa or "")
+    t, a = from_tags(path)
+    if a and _looks_like_channel(a):
+        a = None
+    raw = _clean(t or Path(path).stem)
+    parts = [p.strip() for p in re.split(r"\s[-–—]\s", raw) if p.strip()]
+    if a:
+        title = parts[-1] if len(parts) >= 2 and a.lower() in raw.lower() else raw
+        return title or raw, a
+    if len(parts) == 2:
+        return parts[1], parts[0]  # "Artist - Title"
+    return (raw or Path(path).stem), ""
+
+
+def display_label(title: str, artist: str) -> tuple[str, list[str]]:
+    """The in-game labeling convention: artist FIRST in songName so the menu (which
+    sorts lexicographically by songName) groups by artist, with performedBy left blank
+    to avoid a redundant second line. Returns (songName, performedBy).
+
+    Idempotent: an already-"Artist - Title" name is not prefixed again, so re-running
+    relabel/rename is safe.
+    """
+    title = (title or "").strip()
+    artist = (artist or "").strip()
+    if artist and title:
+        if title.lower().startswith((artist + " - ").lower()):
+            name = title
+        else:
+            name = f"{artist} - {title}"
+    else:
+        name = title or artist or "Unknown"
+    return name, []

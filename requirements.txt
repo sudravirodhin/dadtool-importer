@@ -1,0 +1,15 @@
+# Main environment (the .venv). Python 3.12.
+# Install:  .\.venv\Scripts\pip install -r requirements.txt
+
+numpy
+librosa            # onset/tempo helpers, audio load, librosa beat-track fallback
+soundfile          # click-track preview rendering
+imageio-ffmpeg     # bundles ffmpeg (transcode + two-pass loudnorm) — no system ffmpeg needed
+
+# Auto-naming (optional, but recommended)
+pyacoustid         # AcoustID fingerprint lookup; also needs the Chromaprint `fpcalc` binary
+mutagen            # read embedded tags as a naming fallback
+
+# NOTE: the beat tracker (beat_this) is NOT installed here. It runs in a SEPARATE
+# conda env because it needs PyTorch — see the README "Setup" section:
+#     conda create -n dad-beat python=3.11 && pip install beat_this torch soundfile

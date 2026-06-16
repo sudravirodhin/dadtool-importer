@@ -1,0 +1,23 @@
+{
+  "saved_dir": "C:\\Users\\YOU\\AppData\\Local\\Pagoda\\Saved",
+  "game_install_dir": "D:\\SteamLibrary\\steamapps\\common\\Dead as Disco",
+  "game_exe": "D:\\SteamLibrary\\steamapps\\common\\Dead as Disco\\Pagoda.exe",
+  "shipping_exe": "D:\\SteamLibrary\\steamapps\\common\\Dead as Disco\\Pagoda\\Binaries\\Win64\\PagodaSteam-Win64-Shipping.exe",
+  "steam_appid": 3404260,
+  "steam_appmanifest": "D:\\SteamLibrary\\steamapps\\appmanifest_3404260.acf",
+  "beat_this_python": "C:\\Users\\YOU\\miniforge3\\envs\\dad-beat\\python.exe",
+  "acoustid_api_key": "YOUR_ACOUSTID_API_KEY_OR_OMIT",
+  "fpcalc_path": "C:\\path\\to\\chromaprint-fpcalc\\fpcalc.exe",
+  "auto_generate_challenge": true,
+  "lrcgen_python": "C:\\path\\to\\repo\\lyrics_lab\\.venv\\Scripts\\python.exe",
+  "lyrics_cache_dir": "D:\\SteamLibrary\\steamapps\\common\\Dead as Disco\\Pagoda\\Binaries\\Win64\\ue4ss\\Mods\\Marquee\\Scripts\\data\\lyrics",
+  "lyrics_model": "large-v3",
+  "lyrics_timing_model": "auto",
+  "auto_generate_lyrics": false,
+  "soundtrack_dirs": ["D:\\SteamLibrary\\steamapps\\music\\Dead as Disco Soundtrack Vol 1"],
+  "version_baseline": {
+    "steam_build_id": "23332779",
+    "exe_file_version": "++brainjar+release-CL-28108",
+    "captured": "2026-05-29"
+  }
+}

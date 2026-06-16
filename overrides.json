@@ -1,0 +1,12 @@
+{
+  "_README": "Pin per-song values the detector gets wrong. Keys = EXACT ImportedSongs folder name. Fields: tempo (BPM), beatOffset (ms int), startSongOffset (s), endSongOffset (s), customTempoSections (array of {tempo,startAbsoluteTime}), skip (true = leave this song untouched). Overriding tempo alone recomputes beatOffset from the detected downbeat; also pin beatOffset if the level was wrong. Unrecognized keys (like notes) are ignored. Applied by `batch` unless --no-overrides.",
+  "YABABAINA - Satapan P": {
+    "tempo": 185,
+    "customTempoSections": [],
+    "notes": "Steady ~185 vocaloid; tracker was fooled by the brief slow intro and tracked the rapid-vocal stretches at ~122. Single tempo confirmed by ear vs the 176 preview."
+  },
+  "Hardware Store - Weird Al Yankovic": {
+    "tempo": 252.3642,
+    "notes": "Detection is correct (126.18 BPM, conf 0.97, 11ms grid) but the patter vocals run double-time. Pinned to the exact 2x (phase-locked to the detected beat) for the StepMania-style double-time feel. Change to the stepmap's exact BPM if it differs."
+  }
+}

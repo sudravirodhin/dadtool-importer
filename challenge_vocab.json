@@ -1,0 +1,89 @@
+{
+  "_README": "Challenge-authoring vocabulary harvested from the packed game content (Pagoda-Windows.ucas/.utoc) + the sample Test challenge. mods/enemyBlueprints/patternClasses/objectiveTypes are COMPLETE+CLEAN from the pak. enemyTags/arenaTags exact spellings are partly inferred (UE name-pool concatenation prevents clean binary extraction) — confirm the exact strings via one 'kitchen-sink' user challenge.",
+
+  "challengeMetaPath": "%LOCALAPPDATA%/Pagoda/Saved/UserChallenges/<name>/Meta.json (plain JSON)",
+
+  "enemyTags_confirmed": [
+    "Entity.Character.Enemy.Grunt.Mosher",
+    "Entity.Character.Enemy.Grunt.Stan.Default",
+    "Entity.Character.Enemy.Grunt.Echo",
+    "Entity.Character.Enemy.Guard.Shield",
+    "Entity.Character.Enemy.Guard.Baton"
+  ],
+  "enemyTags_inferred_TOCONFIRM": [
+    "Entity.Character.Enemy.Grunt.Fanatic",
+    "Entity.Character.Enemy.Grunt.Stan.Low",
+    "Entity.Character.Enemy.Ranged.DollClone",
+    "Entity.Character.Enemy.Boss.Doll",
+    "Entity.Character.Enemy.Boss.BigDoll",
+    "Entity.Character.Enemy.Boss.Prophet",
+    "Entity.Character.Enemy.Boss.Rebel",
+    "Entity.Character.Enemy.Boss.Shred"
+  ],
+
+  "enemyBlueprints": [
+    "BP_Enemy_Base", "BP_Enemy_Grunt_Base", "BP_Enemy_Mosher", "BP_Enemy_Mosher_Goober",
+    "BP_Enemy_Stan", "BP_Enemy_Stan_Goober", "BP_Enemy_Stan_Low", "BP_Enemy_Echo",
+    "BP_Enemy_Fanatic", "BP_Enemy_Guard_Baton", "BP_Enemy_Guard_Baton_Charged",
+    "BP_Enemy_Guard_Baton_BlacklightMSS", "BP_Enemy_Guard_Baton_DodgeTutorial",
+    "BP_Enemy_Guard_Shield", "BP_Enemy_Bouncer", "BP_Enemy_Homunculi",
+    "BP_Enemy_MiniBoss_Base", "BP_Enemy_Boss_Base", "BP_Enemy_BigDoll", "BP_Enemy_Doll",
+    "BP_Enemy_DollClone", "BP_Enemy_DollClone_Floating", "BP_Enemy_DollClone_Low",
+    "BP_Enemy_DollClone_Ranged", "BP_Enemy_Prophet", "BP_Enemy_Rebel", "BP_Enemy_Shred"
+  ],
+  "enemyBlueprintPathFormat": "/Game/Pagoda/Characters/Enemies/<Name>/BP_Enemy_<Name>.BP_Enemy_<Name>_C",
+
+  "patternClasses": ["PagodaArcPatternData", "PagodaBasePatternData"],
+  "patternExample": "/Script/Pagoda.PagodaArcPatternData(Radius=100.000000,ArcAngleStartDegrees=0.000000,ArcAngleEndDegrees=360.000000,bSpawnRelativeToPlayer=False)",
+
+  "objectiveTypes_TOCONFIRM": [
+    "PagodaObjectives.DefeatEnemies",
+    "PagodaObjectives.WinOnSongEnd",
+    "PagodaObjectives.LoseOnComboEnd",
+    "PagodaObjectives.PerformAbility"
+  ],
+
+  "arenaTags_confirmed": ["Environment.Arena.Idol.Shred.Reactor"],
+  "arenaTags_inferred_TOCONFIRM": [
+    "Environment.Arena.Idol.Prophet.ColosseumHall",
+    "Environment.Arena.Idol.Prophet.ParkingLot",
+    "Environment.Arena.Idol.Prophet.RecordingStudio",
+    "Environment.Arena.Idol.Rebel.Platform"
+  ],
+
+  "mods": {
+    "help": [
+      "DA_DataMod_AddFeverBar", "DA_DataMod_AddMaxChainLightningAbility",
+      "DA_DataMod_AddMaxDropTheBaxe", "DA_DataMod_AddMaxShowStopperAbility",
+      "DA_DataMod_AddMaxSingularityAbility", "DA_DataMod_AddTakedownToken",
+      "DA_DataMod_ChainLightningActive", "DA_DataMod_GrantFollowup", "DA_DataMod_HeavyActive",
+      "DA_DataMod_IncreasedFeverRegen_50Percent", "DA_DataMod_IncreasedFeverRegen_75Percent",
+      "DA_DataMod_IncreasedHealthPickupChance_10Percent", "DA_DataMod_IncreasedHealthPickupChance_50Percent",
+      "DA_DataMod_IncreasedHealthPickupHealing_AddHalfHeart", "DA_DataMod_PlayerAddHeart",
+      "DA_DataMod_PlayerForceFocus", "DA_DataMod_PlayerForceFocus_Wide",
+      "DA_DataMod_PlayerHealHeartOnTowerFloorCleared", "DA_DataMod_PlayerHealthRegen",
+      "DA_DataMod_ShowStopperActive", "DA_DataMod_SingularityActive", "DA_DataMod_WindmillActive",
+      "DA_DataMod_FasterTakedownTokenRegen_10Percent", "DA_DataMod_FasterTakedownTokenRegen_50Percent",
+      "DA_DataMod_BassInvaderActive", "DA_DataMod_RemoveAllBossAbilities"
+    ],
+    "hinder": [
+      "DA_DataMod_BossIncreasedHealth", "DA_DataMod_DecreasedFeverRegen",
+      "DA_DataMod_DecreasedHealthPickupChance", "DA_DataMod_DecreasedHealthPickupHealing",
+      "DA_DataMod_Enemy10PercentArmor", "DA_DataMod_EnemyFullArmor", "DA_DataMod_EnemyIncreasedHealth",
+      "DA_DataMod_PlayerHalfHeartMaxDamage", "DA_DataMod_PlayerIncreaseIncomingDamage",
+      "DA_DataMod_PlayerNoFocus", "DA_DataMod_PlayerOneHitWonder", "DA_DataMod_RemoveFeverBar",
+      "DA_DataMod_RemoveFeverRush"
+    ],
+    "tempo": ["DA_DataMod_DoubleTime", "DA_DataMod_HalfTime"],
+    "bossChallenge": [
+      "DA_DataMod_Boss_Challenge_Base", "DA_DataMod_Boss_Challenge_Phase1",
+      "DA_DataMod_Boss_Challenge_Phase2", "DA_DataMod_Boss_Challenge_Phase3",
+      "DA_DataMod_Boss_Challenge_Doll", "DA_DataMod_Boss_Challenge_Doll_FourTour",
+      "DA_DataMod_Boss_Challenge_Doll_MatchMadeInHeaven", "DA_DataMod_Boss_Challenge_Shred",
+      "DA_DataMod_Boss_Challenge_UGC_Doll", "DA_DataMod_Boss_Challenge_UGC_Prophet",
+      "DA_DataMod_Boss_Challenge_UGC_Rebel", "DA_DataMod_Boss_Challenge_UGC_Shred",
+      "DA_DataMod_BossIncreasedHealth"
+    ]
+  },
+  "modPathFormat": "/Game/Pagoda/DataMod/<Help|Hinder>/<modName>.<modName>"
+}

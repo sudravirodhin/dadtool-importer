@@ -1,0 +1,39 @@
+# Full Saved-dir backups are large and contain game data — never commit.
+/backups/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# Local machine config (game paths differ per machine)
+/dad_config.json
+
+# Click-track previews and other generated audio
+/previews/
+*.preview.wav
+
+# Source-audio library (large; lives in the workspace but not in git)
+/audio/
+
+# Downloaded binaries (fpcalc etc.) - fetched per-machine, not committed
+/tools/
+
+# Analysis + beat cache (regenerated on demand, machine-specific)
+/cache/
+
+# Saved-tree snapshots/manifests (machine- and game-state-specific)
+/snapshots/
+
+# Batch/normalize run logs
+*.log
+logs_*.txt
+
+# Lyrics ASR: multi-GB model, isolated venv, and generated/copyrighted lyric files
+# (.venv is already covered above; lyrics are generated per-user, never committed)
+/lyrics_lab/models/
+/lyrics_lab/out/
+/lyrics_lab/backup_existing/
+/lyrics_lab/reference_lyrics*.txt
