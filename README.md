@@ -319,8 +319,7 @@ overrides.json           per-song pinned fixes
 
 ## License
 
-Personal project — no license is granted by default (all rights reserved). Add a
-`LICENSE` file before sharing if you want others to reuse it. *Dead as Disco* is a
+Released under the **MIT License** — see [LICENSE](LICENSE). *Dead as Disco* is a
 trademark of Brain Jar Games; this project is not affiliated with or endorsed by them.
 
 ## Credits
