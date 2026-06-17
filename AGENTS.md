@@ -191,7 +191,7 @@ UE4SS Lua mod) is the **consumer**. Contract:
   `cache/`, `tools/` (the fpcalc binary), `snapshots/`, `.venv/`, and
   `lyrics_lab/{models,out,backup_existing}` + `reference_lyrics*.txt` (copyright). Keep it that way —
   no secrets, binaries, large downloads, or generated lyrics in the repo.
-- **Commits:** end commit messages with `Co-Authored-By: Gemini 3.5 Flash <noreply@google.com>`.
+- **Commits:** end commit messages dynamically with the name of the model/agent currently executing the task, e.g. `Co-Authored-By: <Model Name> <noreply@domain.com>` (or ask the user if the active model/agent name is ambiguous).
 - **Issues:** enabled. Use labels for categorization. Reference sister repo issues cross-repo when
   applicable (e.g. `sudravirodhin/dadtool-marquee-hud#2`).
 - Companion repo: `dadtool-marquee-hud` (the HUD mod / lyrics consumer; MIT, fork of upstream `hort`).
