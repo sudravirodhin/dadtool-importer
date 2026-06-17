@@ -823,6 +823,18 @@ def cmd_lyrics(args) -> None:
               f"{res['requests'] - res['todo']} already had lyrics -> {outdir}")
         print("Restart the game to see built-in lyrics; F9/F10 nudges timing.")
         return
+    if args.remap:
+        try:
+            res = lyrics.remap(args.out, dry_run=args.dry_run)
+        except RuntimeError as e:
+            raise SystemExit(str(e))
+        for row in res["remapped"]:
+            extra = f"  ({row[3]})" if len(row) > 3 and row[3] else ""
+            print(f"  REMAP {row[2]!r}: {row[0]} -> {row[1]}{extra}")
+        tail = "  [dry-run: nothing renamed]" if args.dry_run else ""
+        print(f"\nremap: {len(res['remapped'])} renamed, {len(res['unmatched'])} with no orphan"
+              f" (run `dad lyrics --queue` to fetch those){tail}")
+        return
     if args.purge:
         args.all = True
         args.force = True
@@ -1077,6 +1089,9 @@ def main(argv=None) -> None:
     ly.add_argument("--queue", action="store_true",
                     help="fetch lyrics for BUILT-IN songs the mod queued in _requests.jsonl (LRClib); "
                          "imported songs are produced at import, not here")
+    ly.add_argument("--remap", action="store_true",
+                    help="rename an orphaned <oldkey>.lrc to a newly-queued key when their [ti:]/[ar:] "
+                         "match -- preserves F9/F10 .offset + proofing across a key change (then --queue the rest)")
     ly.add_argument("--limit", type=int, help="with --all, cap how many are processed")
     ly.add_argument("--dry-run", action="store_true")
     ly.set_defaults(func=cmd_lyrics)

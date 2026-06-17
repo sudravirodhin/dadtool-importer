@@ -289,7 +289,8 @@ def process_queue(out_dir=None, *, include_imported: bool = False, force: bool =
             text = synced.lstrip("﻿")
             if not text.endswith("\n"):
                 text += "\n"
-            _write_no_bom(lrc_p, f"[by:dadtool (LRClib, built-in)]\n{text}")
+            tags = "".join(f"[{k}:{v}]\n" for k, v in (("ti", title), ("ar", artist)) if v)
+            _write_no_bom(lrc_p, f"{tags}[by:dadtool (LRClib, built-in)]\n{text}")
             if miss_p.exists():
                 miss_p.unlink()
             ok += 1
@@ -324,6 +325,95 @@ def process_queue(out_dir=None, *, include_imported: bool = False, force: bool =
         miss += 1
         songs.append((key, _label(e), "MISS"))
     return {"requests": len(entries), "todo": len(todo), "ok": ok, "miss": miss, "songs": songs}
+
+
+def _norm_match(s) -> str:
+    return re.sub(r"[^a-z0-9]+", "", (s or "").lower())
+
+
+def _read_lrc_tags(path) -> tuple:
+    """First [ti:]/[ar:] tags from an .lrc (used to match an orphan to a queued request)."""
+    ti = ar = None
+    try:
+        for line in path.read_text(encoding="utf-8", errors="replace").splitlines()[:15]:
+            if ti is None:
+                m = re.match(r"\s*\[ti:(.*)\]\s*$", line, re.I)
+                if m:
+                    ti = m.group(1).strip()
+            if ar is None:
+                m = re.match(r"\s*\[ar:(.*)\]\s*$", line, re.I)
+                if m:
+                    ar = m.group(1).strip()
+            if ti is not None and ar is not None:
+                break
+    except Exception:  # noqa: BLE001
+        pass
+    return ti, ar
+
+
+def remap(out_dir=None, *, dry_run: bool = False, allow_running: bool = False) -> dict:
+    """Preserve lyrics across a built-in KEY change. For each newly-queued request whose
+    <key>.lrc doesn't exist, find an orphaned <oldkey>.lrc whose [ti:]/[ar:] match the
+    request and rename <oldkey>.{lrc,txt,words.json,offset} -> <newkey>.* -- keeping the
+    player's F9/F10 .offset nudge + any proofing instead of re-fetching. Requests with no
+    matching orphan are left for `--queue`. Imported-song lyrics (stable uniqueId keys) are
+    never used as rename sources."""
+    out = Path(out_dir) if out_dir else cache_dir()
+    if not mod_installed(out):
+        raise RuntimeError(f"lyrics target not found ({out}); the Marquee mod isn't installed")
+    if not dry_run and not allow_running and gamestate.is_game_running():
+        raise RuntimeError("game is running; refusing to write")
+
+    imported_keys = set()                      # never remap a valid imported song's lyrics away
+    base = paths.imported_songs_dir()
+    if base.exists():
+        for d in base.iterdir():
+            mj = d / "Meta.json"
+            if mj.exists():
+                try:
+                    imported_keys.add(song_key(meta.read_meta(mj)[0]))
+                except Exception:  # noqa: BLE001
+                    pass
+
+    orphans = {}                               # oldkey -> (norm_title, norm_artist)
+    for p in out.glob("*.lrc"):
+        if p.stem in imported_keys:
+            continue
+        ti, ar = _read_lrc_tags(p)
+        if ti:
+            orphans[p.stem] = (_norm_match(ti), _norm_match(ar))
+
+    remapped, unmatched, used = [], [], set()
+    for e in _read_queue(out):
+        newkey = str(e.get("key") or "")
+        if not newkey or (out / f"{newkey}.lrc").exists() or (out / f"{newkey}.miss").exists():
+            continue                           # already resolved (has lyrics or known-miss)
+        title = _norm_match(e.get("title") or e.get("songName") or "")
+        artist = _norm_match(e.get("artist") or "")
+        if not title:
+            continue
+        match = next((k for k, (ti, ar) in orphans.items()
+                      if k != newkey and k not in used
+                      and ti == title and (not artist or not ar or ar == artist)), None)
+        if not match:
+            unmatched.append((newkey, e.get("title")))
+            continue
+        moved = []
+        for ext in (".lrc", ".txt", ".words.json", ".offset"):
+            src, dst = out / f"{match}{ext}", out / f"{newkey}{ext}"
+            if src.exists():
+                if not dry_run:
+                    if dst.exists():
+                        dst.unlink()
+                    src.rename(dst)
+                moved.append(ext)
+        if not dry_run:
+            miss = out / f"{newkey}.miss"
+            if miss.exists():
+                miss.unlink()
+        used.add(match)
+        remapped.append((match, newkey, e.get("title"), ",".join(moved)))
+    return {"remapped": remapped, "unmatched": unmatched}
 
 
 def _lrcgen_python() -> str | None:
