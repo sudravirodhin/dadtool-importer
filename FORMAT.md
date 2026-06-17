@@ -5,10 +5,9 @@
 > change (see bottom).
 
 ## Game version this was validated against
-- Steam appid `3404260`, build id `23332779`
-- Exe file version `++brainjar+release-CL-28108`
-- In-game UI version string `v0.1.71.0028108-39.4.55`
-- Validated 2026-05-30
+- Steam appid `3404260`, build id `23726858` (UPDATE 1)
+- Exe file version `++brainjar+release-CL-29008`
+- Validated 2026-06-16
 
 ## Where beat-sync data lives  (CONFIRMED)
 - Per-song sidecar: `<Saved>\ImportedSongs\<uEAssetName>\Meta.json`
