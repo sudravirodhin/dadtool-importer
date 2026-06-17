@@ -22,6 +22,8 @@ import difflib
 import json
 import re
 import sys
+import urllib.parse
+import urllib.request
 
 for _s in (sys.stdout, sys.stderr):
     try:
@@ -135,30 +137,80 @@ def fetch_reference(artist, title):
     return out
 
 
-def fetch_synced(artist, title):
-    """Try to get a SYNCED (timestamped) LRC online (syncedlyrics: LRClib/Musixmatch/NetEase/
-    Megalobiz). Returns (lines, ok) with lines = [{'t': sec_in_ORIGINAL_track, 'text'}]; the
-    caller (dadtool) trim-corrects via startSongOffset. ok=False -> fall back to ASR."""
+LRCLIB = "https://lrclib.net"
+_UA = "dadtool-lyrics/1.0 (+https://lrclib.net)"
+DURATION_TOLERANCE_S = 8
+
+
+def _lrclib_get(path: str, params: dict):
+    url = LRCLIB + path + "?" + urllib.parse.urlencode(params)
+    req = urllib.request.Request(url, headers={"User-Agent": _UA, "Accept": "application/json"})
     try:
-        import syncedlyrics
-    except Exception as e:  # not installed
-        log(f"[synced] syncedlyrics unavailable: {e}")
-        return [], False
-    term = f"{clean_title(title)} {artist}".strip()
-    if not term:
-        return [], False
-    log(f"[synced] syncedlyrics search: {term!r}")
-    res = None
-    for kw in ({"synced_only": True}, {}):
+        with urllib.request.urlopen(req, timeout=15) as r:
+            return r.status, json.loads(r.read().decode("utf-8"))
+    except Exception as e:
+        log(f"[lrclib] request failed: {e}")
+        return 0, None
+
+
+def fetch_lrclib(artist: str, title: str, duration: float = 0.0) -> str | None:
+    if artist and title:
+        params = {"artist_name": artist, "track_name": title}
+        if duration > 0:
+            params["duration"] = int(duration)
+        st, data = _lrclib_get("/api/get", params)
+        if st == 200 and data and data.get("syncedLyrics"):
+            log(f"[lrclib] exact match found (duration={duration:.1f}s)")
+            return data["syncedLyrics"]
+
+    q = {}
+    if title:
+        q["track_name"] = title
+    if artist:
+        q["artist_name"] = artist
+    if not q and title:
+        q = {"q": title}
+    st, results = _lrclib_get("/api/search", q)
+    if st == 200 and isinstance(results, list):
+        best, best_score = None, None
+        for c in results:
+            if not c.get("syncedLyrics"):
+                continue
+            score = abs((c.get("duration") or 0) - (duration or 0))
+            if best is None or score < best_score:
+                best, best_score = c, score
+        if best and (duration == 0 or best_score <= DURATION_TOLERANCE_S):
+            log(f"[lrclib] search match found, score={best_score:.1f}s (target={duration:.1f}s)")
+            return best["syncedLyrics"]
+    return None
+
+
+def fetch_synced(artist, title, duration=0):
+    """Try to get a SYNCED (timestamped) LRC online. Matches closest duration on LRClib first,
+    falling back to syncedlyrics query. Returns (lines, ok)."""
+    res = fetch_lrclib(artist, title, duration)
+
+    if not res:
         try:
-            res = syncedlyrics.search(term, **kw)
-        except TypeError:
-            continue  # signature without this kwarg
-        except Exception:
+            import syncedlyrics
+        except Exception as e:  # not installed
+            log(f"[synced] syncedlyrics unavailable: {e}")
+            return [], False
+        term = f"{clean_title(title)} {artist}".strip()
+        if not term:
+            return [], False
+        log(f"[synced] syncedlyrics search: {term!r}")
+        for kw in ({"synced_only": True}, {}):
+            try:
+                res = syncedlyrics.search(term, **kw)
+            except TypeError:
+                continue  # signature without this kwarg
+            except Exception:
+                res = None
+            if res and re.search(r"\[\d+:\d+", res):  # accept only if it actually has timestamps
+                break
             res = None
-        if res and re.search(r"\[\d+:\d+", res):  # accept only if it actually has timestamps
-            break
-        res = None
+
     if not res:
         log("[synced] no synced lyrics found")
         return [], False
@@ -216,14 +268,20 @@ def main():
     ap.add_argument("--min-lines", type=int, default=4)  # fewer real lines -> instrumental
     a = ap.parse_args()
 
+    with contextlib.redirect_stdout(sys.stderr):
+        from faster_whisper.audio import decode_audio
+
+        audio = decode_audio(a.audio, sampling_rate=16000)   # PyAV decode, no ffmpeg CLI
+        dur = len(audio) / 16000.0
+
     # Online-first: if a real SYNCED LRC exists, use it (real words) and skip ASR entirely.
     # dadtool trim-corrects the timing. Falls through to ASR when nothing usable is found.
     if a.reference != "off":
         with contextlib.redirect_stdout(sys.stderr):
-            synced_lines, synced_ok = fetch_synced(a.artist, a.title)
+            synced_lines, synced_ok = fetch_synced(a.artist, a.title, dur)
         if synced_ok:
             result = {
-                "language": None, "language_prob": 0.0, "duration": 0.0, "instrumental": False,
+                "language": None, "language_prob": 0.0, "duration": round(dur, 2), "instrumental": False,
                 "lines": synced_lines, "words": [],
                 "transcript": "\n".join(l["text"] for l in synced_lines),
                 "reconciled": True, "corrected": 0, "kept": len(synced_lines),
@@ -236,10 +294,6 @@ def main():
         import os
 
         from faster_whisper import WhisperModel
-        from faster_whisper.audio import decode_audio
-
-        audio = decode_audio(a.audio, sampling_rate=16000)   # PyAV decode, no ffmpeg CLI
-        dur = len(audio) / 16000.0
         threads = a.threads or (os.cpu_count() or 8)
         log(f"[audio] {dur:.1f}s decoded; loading {a.model} (int8/cpu, {threads} threads)")
         model = WhisperModel(a.model, device="cpu", compute_type="int8",
