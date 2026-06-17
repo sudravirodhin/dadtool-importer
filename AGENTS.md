@@ -119,7 +119,7 @@ All paths are **machine-specific**; the file is never committed. Env var overrid
   skip).
 - `sources.py` — source-audio filing into `audio/processed/`.
 - `snapshot.py` — hash-manifest of the Saved tree for format reverse-engineering.
-- `scripts/beat_this_worker.py`, `scripts/lrcgen_worker.py` — the two isolated-env workers.
+- `scripts/beat_this_worker.py`, `scripts/lrcgen_worker.py` — the two isolated-env workers; `scripts/revalidate_lyrics.py` — lyrics cache validation tool.
 
 ---
 
@@ -147,14 +147,9 @@ UE4SS Lua mod) is the **consumer**. Contract:
 - **Timing.** Transcribe the *shipped, trimmed* `Audio.ogg` → already 0-based (model `file`, no shift).
   Online (LRClib/syncedlyrics) lyrics are timed to the original release → subtract `startSongOffset`
   (model `subtract-start-offset`). Config `lyrics_timing_model: auto` picks per source.
-- **Pipeline.** Online-first (LRClib duration-matched, then syncedlyrics multi-provider) → ASR fallback
-  (faster-whisper, **VAD off**, drop stock-phrase hallucinations, drop cross-language lines) → `.miss`
-  if instrumental/unavailable. Built-ins LRClib lacks but that exist in the **OST** are ASR'd from
-  `soundtrack_dirs` (config), cached per OST file in `cache/lyrics_ost_asr.json`.
-- **Manifest.** Marquee dumps a full per-load catalog of every song to `…\data\lyrics\_catalog.jsonl`
-  (fields `key/artist/title/songName/durationSec/isImported`). `lyrics._read_queue()` reads it (falls
-  back to the legacy per-session `_requests.jsonl`); `process_queue` filters `not isImported` and skips
-  keys that already have a `.lrc`/`.miss`, so the full manifest self-finds the gaps.
+- **Pipeline.** Online-first (LRClib duration-matched with an 8-second tolerance, then syncedlyrics multi-provider) → ASR fallback (faster-whisper, **VAD off**, drop stock-phrase hallucinations, drop cross-language lines) → `.miss` if instrumental/unavailable. Built-ins LRClib lacks can be ASR'd from the **OST** (`soundtrack_dirs` config, cached per OST file in `cache/lyrics_ost_asr.json`) or extracted directly from FMOD bank files (`MX_<key>.streams.bank` under `Pagoda/Content/FMOD/Banks/Desktop/`) via `fsb5` and dynamic ctypes patching of the game's native `libogg` and `libvorbis` DLLs.
+- **Manifest.** Marquee dumps a full per-load catalog of every song to `…\data\lyrics\_catalog.jsonl` (fields `key/artist/title/songName/durationSec/isImported`). `lyrics._read_queue()` reads it (falls back to the legacy per-session `_requests.jsonl`); `process_queue` filters `not isImported` and skips keys that already have a `.lrc`/`.miss`, so the full manifest self-finds the gaps.
+- **Validation.** `scripts/revalidate_lyrics.py` validates the entire `.lrc` cache against duration-matched online sources, with support for auto-overwriting mismatches (like ASR drafts or wrong variants) when run with `--fix`.
 - **Never touch `<key>.offset`** — that is the player's live F9/F10/F11 timing nudge. `--remap` renames
   an orphaned `<oldkey>.{lrc,txt,words.json,offset}` → new key (matched by `[ti:]`/`[ar:]`) to preserve
   nudges/proofing across a built-in key drift; otherwise re-fetch via `--queue`.
