@@ -105,6 +105,17 @@ Run through the venv (or the bundled `dad.cmd` / `watch.cmd` launchers):
 | `collect` / `ingest` | file source audio into `audio/processed/` |
 | `snapshot <label>` / `diff <a> <b>` | hash-manifest the save tree + diff (format work) |
 
+### Helper Scripts
+
+- **`scripts/revalidate_lyrics.py`**: Validates cached `.lrc` lyrics in the Marquee mod cache against duration-matched online sources to check for timing and variant mismatches.
+  ```powershell
+  # Check cache for mismatches
+  python scripts/revalidate_lyrics.py
+
+  # Automatically fix mismatched cached lyrics with corrected online synced versions
+  python scripts/revalidate_lyrics.py --fix
+  ```
+
 **Per-song overrides** live in `overrides.json`, keyed by the exact ImportedSongs folder
 name: pin `tempo`, `beatOffset` (ms), `startSongOffset`/`endSongOffset` (s),
 `customTempoSections`, or `skip: true`. Applied by `batch` and `write`.
@@ -272,6 +283,20 @@ The game's custom-fight editor stores challenges as plain JSON in
 
 `challenge generate` writes one; `challenge sync --purge` regenerates the whole library; and with
 `auto_generate_challenge: true` in `dad_config.json`, every new import gets one automatically.
+
+</details>
+
+<details>
+<summary><b>Lyrics &amp; Companion Mod integration</b> — online fetch, duration-matching, FMOD bank extraction, and validation</summary>
+
+The synced lyrics pipeline generates `.lrc` lyrics for the **Marquee companion HUD mod**:
+
+- **Duration-Matched Online Fetch**: Requests synced lyrics from LRClib within a strict tolerance (default `8` seconds). This prevents variant mismatches (e.g. matching an extended/radio mix or transition variants like *Points of Authority* which have different durations).
+- **FMOD Bank Audio Extraction Fallback**: If a built-in game song is not available online, `dadtool` can extract its audio stream directly from the game's desktop bank files (`MX_<key>.streams.bank` under `Pagoda/Content/FMOD/Banks/Desktop/`).
+  - Pre-loads the game's built-in Ogg and Vorbis DLLs (`libogg_64.dll` and `libvorbis_64.dll`) from the engine binaries directory (`Engine/Binaries/ThirdParty/`) using dynamic ctypes patching.
+  - Rebuilds and extracts the raw Vorbis audio stream from FMOD's `FSB5` container using the `fsb5` library without requiring system-wide audio package dependencies.
+  - Feeds the extracted file to `faster-whisper` ASR to generate a timed `.lrc` draft.
+- **Lyrics Revalidation Tool**: You can revalidate the entire cache of cached `.lrc` files against duration-matched online sources using `scripts/revalidate_lyrics.py`.
 
 </details>
 
