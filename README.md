@@ -1,5 +1,9 @@
 # dadtool — offline beat-sync & song importer for *Dead as Disco*
 
+> [!IMPORTANT]
+> **AI Assistance Disclosure & Disclaimer**
+> This project was developed with the assistance of an AI Large Language Model (LLM). It is a purely personal, non-profit project built for fun to speed up development and make it easier to enjoy the game. If you are not comfortable using software that has been touched or written with the help of AI, please do not proceed.
+
 A Windows CLI that analyzes a track's beat **offline** and writes the sync data
 **straight into *Dead as Disco*'s per-song save metadata** — so you never have to use the
 in-game tap-calibration tool. It can also import songs end to end (transcode →
