@@ -36,10 +36,6 @@ WORKER = paths.REPO_ROOT / "scripts" / "lrcgen_worker.py"
 MODELS_DIR = paths.REPO_ROOT / "lyrics_lab" / "models"        # cached large-v3 lives here
 BACKUP_DIR = paths.REPO_ROOT / "lyrics_lab" / "backup_existing"
 
-# The mod resolves this relative to the game's working dir; it's the LIVE 'Marquee' mod
-# (the old 'DiscoTracker' folder is stale). Override via 'lyrics_cache_dir' in the config.
-DEFAULT_CACHE = (r"D:\SteamLibrary\steamapps\common\Dead as Disco\Pagoda\Binaries"
-                 r"\Win64\ue4ss\Mods\Marquee\Scripts\data\lyrics")
 BY_TAG = "dadtool ASR (faster-whisper large-v3) - DRAFT, proof the .txt"
 
 
@@ -48,7 +44,25 @@ def _cfg() -> dict:
 
 
 def cache_dir() -> Path:
-    return Path(_cfg().get("lyrics_cache_dir") or DEFAULT_CACHE)
+    """Resolve the Marquee mod's lyrics cache directory.
+
+    Priority: explicit ``lyrics_cache_dir`` config key → derived from
+    ``game_install_dir`` → raise with actionable message.
+    """
+    cfg = _cfg()
+    # Explicit override takes priority
+    explicit = cfg.get("lyrics_cache_dir")
+    if explicit:
+        return Path(explicit)
+    # Derive from game_install_dir if available
+    install = cfg.get("game_install_dir")
+    if install:
+        derived = (Path(install) / "Pagoda" / "Binaries" / "Win64"
+                   / "ue4ss" / "Mods" / "Marquee" / "Scripts" / "data" / "lyrics")
+        return derived
+    raise RuntimeError(
+        "lyrics cache dir unknown: set 'lyrics_cache_dir' or 'game_install_dir' "
+        "in dad_config.json (see dad_config.example.json)")
 
 
 def mod_installed(out=None) -> bool:
@@ -92,12 +106,13 @@ _UA = "dadtool-lyrics/1.0 (+https://lrclib.net)"
 # otherwise grab another track's lyrics).
 _PLACEHOLDER_TITLES = {"", "no song", "untitled", "no title", "none", "no lyrics"}
 _OST_CACHE = paths.CACHE_DIR / "lyrics_ost_asr.json"
+DURATION_TOLERANCE_S = 8     # LRClib duration-matching tolerance (seconds)
 
 
 def _load_ost_cache() -> dict:
     try:
         return json.loads(_OST_CACHE.read_text(encoding="utf-8"))
-    except Exception:  # noqa: BLE001
+    except (OSError, json.JSONDecodeError, ValueError):
         return {}
 
 
@@ -144,7 +159,7 @@ def fetch_lrclib(artist: str, title: str, duration: int = 0) -> str | None:
             score = abs((c.get("duration") or 0) - (duration or 0))
             if best is None or score < best_score:
                 best, best_score = c, score
-        if best and (not duration or best_score <= 8):
+        if best and (not duration or best_score <= DURATION_TOLERANCE_S):
             return best["syncedLyrics"]
     return None
 
@@ -160,8 +175,6 @@ def _fetch_synced_text(artist: str, title: str, duration: int = 0) -> str | None
     if not term:
         return None
     try:
-        import re as _re
-
         import syncedlyrics
         for kw in ({"synced_only": True}, {}):
             try:
@@ -170,14 +183,14 @@ def _fetch_synced_text(artist: str, title: str, duration: int = 0) -> str | None
                 continue
             except Exception:  # noqa: BLE001
                 r = None
-            if r and _re.search(r"\[\d+:\d+", r):
+            if r and re.search(r"\[\d+:\d+", r):
                 return r
     except Exception:  # noqa: BLE001
         pass
     return None
 
 
-def _norm_title(s: str) -> str:
+def _normalize(s: str) -> str:
     return re.sub(r"[^a-z0-9]", "", (s or "").lower())
 
 
@@ -193,7 +206,7 @@ def _index_soundtrack(dirs) -> dict:
             if p.suffix.lower() not in (".mp3", ".wav", ".flac", ".ogg", ".m4a"):
                 continue
             stem = re.sub(r"^\s*\d+[_\-.\s]*", "", p.stem)   # drop a leading "05_" track number
-            k = _norm_title(stem)
+            k = _normalize(stem)
             if not k:
                 continue
             cur = idx.get(k)
@@ -202,15 +215,15 @@ def _index_soundtrack(dirs) -> dict:
     return idx
 
 
-def _find_soundtrack(title: str, dirs) -> "Path | None":
+def _find_soundtrack(title: str, dirs) -> Path | None:
     """Exact normalized-title match in the soundtrack (e.g. 'Hyper Sunrise' -> 05_HyperSunrise.mp3),
     with a fallback that strips a parenthetical suffix ('Echolokators (Radio Edit)' -> 'Echolokators').
     Still exact on the cleaned title -- avoids 'Mission' grabbing 'Mission_BOSS_RMX'."""
     idx = _index_soundtrack(dirs)
-    k = _norm_title(title)
+    k = _normalize(title)
     if k and k in idx:
         return idx[k]
-    k2 = _norm_title(re.sub(r"[\(\[].*?[\)\]]", "", title))   # drop "(Radio Edit)" etc.
+    k2 = _normalize(re.sub(r"[\(\[].*?[\)\]]", "", title))   # drop "(Radio Edit)" etc.
     if k2 and k2 != k and k2 in idx:
         return idx[k2]
     return None
@@ -247,10 +260,11 @@ def _read_queue(out: Path) -> list[dict]:
 
 def process_queue(out_dir=None, *, include_imported: bool = False, force: bool = False,
                   dry_run: bool = False, allow_running: bool = False, limit: int = 0) -> dict:
-    """Drain _requests.jsonl: fetch LRClib lyrics for BUILT-IN songs (which dadtool can't
-    import). Writes <key>.lrc (synced, RAW timing -- built-ins have no known trim, so the
-    player's F9/F10 fine-tunes) or <key>.miss. Imported songs are skipped (the importer
-    produces those) unless include_imported."""
+    """Process the Marquee catalog (_catalog.jsonl, falling back to legacy _requests.jsonl):
+    fetch LRClib lyrics for BUILT-IN songs (which dadtool can't import). Writes <key>.lrc
+    (synced, RAW timing -- built-ins have no known trim, so the player's F9/F10 fine-tunes)
+    or <key>.miss. Imported songs are skipped (the importer produces those) unless
+    include_imported."""
     out = Path(out_dir) if out_dir else cache_dir()
     if not mod_installed(out):
         raise RuntimeError(f"lyrics target not found ({out}); the Marquee mod isn't installed")
@@ -332,8 +346,8 @@ def process_queue(out_dir=None, *, include_imported: bool = False, force: bool =
     return {"requests": len(entries), "todo": len(todo), "ok": ok, "miss": miss, "songs": songs}
 
 
-def _norm_match(s) -> str:
-    return re.sub(r"[^a-z0-9]+", "", (s or "").lower())
+# _normalize is defined above (near _index_soundtrack); used by both _index_soundtrack
+# and remap for consistent title/artist normalization.
 
 
 def _read_lrc_tags(path) -> tuple:
@@ -386,15 +400,15 @@ def remap(out_dir=None, *, dry_run: bool = False, allow_running: bool = False) -
             continue
         ti, ar = _read_lrc_tags(p)
         if ti:
-            orphans[p.stem] = (_norm_match(ti), _norm_match(ar))
+            orphans[p.stem] = (_normalize(ti), _normalize(ar))
 
     remapped, unmatched, used = [], [], set()
     for e in _read_queue(out):
         newkey = str(e.get("key") or "")
         if not newkey or (out / f"{newkey}.lrc").exists() or (out / f"{newkey}.miss").exists():
             continue                           # already resolved (has lyrics or known-miss)
-        title = _norm_match(e.get("title") or e.get("songName") or "")
-        artist = _norm_match(e.get("artist") or "")
+        title = _normalize(e.get("title") or e.get("songName") or "")
+        artist = _normalize(e.get("artist") or "")
         if not title:
             continue
         match = next((k for k, (ti, ar) in orphans.items()

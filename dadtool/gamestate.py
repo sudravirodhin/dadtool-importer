@@ -18,6 +18,7 @@ from . import paths
 # project name (the Saved folder is %LOCALAPPDATA%\Pagoda). Kept specific so it
 # does NOT match unrelated processes like "Discord".
 GAME_PROC_HINTS = ("pagoda", "deadasdisco", "dead as disco")
+MIN_PLAUSIBLE_PROCS = 5  # tasklist must return at least this many to be trusted
 
 
 def is_game_running() -> list[str]:
@@ -36,7 +37,7 @@ def is_game_running() -> list[str]:
             ).stdout
         except FileNotFoundError:
             return []
-        if len([ln for ln in out.splitlines() if ln.strip()]) >= 5:
+        if len([ln for ln in out.splitlines() if ln.strip()]) >= MIN_PLAUSIBLE_PROCS:
             break  # got a real process list
     hits: set[str] = set()
     for line in out.splitlines():
@@ -89,8 +90,18 @@ def _exe_file_version(exe: Path) -> str | None:
     try:
         out = subprocess.run(
             ["powershell", "-NoProfile", "-Command", ps],
-            capture_output=True, text=True, check=False,
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            check=False,
         ).stdout.strip()
         return out or None
     except FileNotFoundError:
         return None
+
+
+def refuse_if_running(allow: bool = False) -> None:
+    """Raise RuntimeError if the game is running and *allow* is False."""
+    if allow:
+        return
+    procs = is_game_running()
+    if procs:
+        raise RuntimeError(f"game is running ({', '.join(procs)}); refusing to write")

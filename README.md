@@ -90,6 +90,7 @@ Run through the venv (or the bundled `dad.cmd` / `watch.cmd` launchers):
 | `challenge generate "<song>"` | generate + write a Challenge (`--difficulty`, `--boss`/`--no-boss`, `--arena`) |
 | `challenge sync` | generate auto challenges for the whole library (`--purge`, `--dry-run`) |
 | `watch` | daemon: auto-import audio dropped into `audio/pending/` (`--once`, `--interval N`) |
+| `lyrics <song>` \| `--all` \| `--queue [--limit N]` \| `--remap` | synced .lrc lyrics for the Marquee companion mod (`--purge`, `--retry-missing`, `--dry-run`) |
 | `normalize` | LUFS-normalize every `Audio.ogg` to −14 (`--force`) |
 | `rename` | set Song Name/Artist from AcoustID for all songs (`--dry-run`) |
 | `relabel` | rewrite every Song Name to `Artist - Title` so the in-game list sorts by artist (`--dry-run`) |
@@ -297,11 +298,11 @@ dadtool/                 the package
   loudness.py            two-pass loudnorm
   playlist.py            .bjpl playlist codec + album auto-grouping
   challenge.py           procedural Challenge generator (spectral -> waves/bosses/mods/arena)
-  lyrics.py              synced-lyrics (.lrc) generator for the companion Marquee mod (experimental)
+  lyrics.py              synced-lyrics (.lrc) producer for the companion Marquee mod (draft — requires human proofing)
   meta / snapshot / backup / overrides / sources / gamestate
 scripts/
   beat_this_worker.py    beat tracker — runs inside the isolated conda env
-  lrcgen_worker.py       lyrics ASR (faster-whisper) — runs inside an isolated venv (experimental)
+  lrcgen_worker.py       lyrics ASR (faster-whisper) — runs inside an isolated venv
 FORMAT.md                reverse-engineered save format (source of truth for writes)
 dad_config.example.json  copy to dad_config.json and fill in
 overrides.json           per-song pinned fixes

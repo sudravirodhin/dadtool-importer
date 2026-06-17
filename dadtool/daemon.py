@@ -14,7 +14,6 @@ Notes:
 """
 from __future__ import annotations
 
-import shutil
 import time
 from pathlib import Path
 
@@ -50,7 +49,7 @@ def _process_once(sizes: dict, state: dict, stable_only: bool, log, limit: int =
                 sources.move_into(dest, pending / "_duplicates")
                 log(f"duplicate of {de.existing_folder!r}: {f.name}  -> _duplicates/")
                 continue
-            except Exception:
+            except Exception:  # noqa: BLE001
                 sources.move_into(dest, failed)  # quarantine the moved source on failure
                 raise
             n += 1

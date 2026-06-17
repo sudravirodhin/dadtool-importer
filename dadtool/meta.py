@@ -1,4 +1,4 @@
-"""Read (and later write) the per-song ``Meta.json`` sidecar.
+"""Read and write the per-song ``Meta.json`` sidecar.
 
 The game writes Meta.json as UTF-8 for ASCII-only names but UTF-16LE (with BOM)
 when the name/path contains non-ASCII characters. We sniff the BOM, decode

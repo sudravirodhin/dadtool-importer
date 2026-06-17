@@ -82,24 +82,35 @@ class _R:
 def parse(data: bytes):
     """Return (guid_bytes, name, refs, uids)."""
     r = _R(data)
-    assert r.i32() == 2 and r.byte() == 0
-    assert r.fstr() == "UniqueID" and r.fstr() == "StructProperty"
-    assert r.i32() == 1 and r.fstr() == "Guid" and r.i32() == 1
-    assert r.fstr() == "/Script/CoreUObject"
-    assert r.i32() == 0 and r.i32() == 16 and r.byte() == 8
+    if r.i32() != 2 or r.byte() != 0:
+        raise ValueError("bjpl: invalid header (expected version 2)")
+    if r.fstr() != "UniqueID" or r.fstr() != "StructProperty":
+        raise ValueError("bjpl: expected UniqueID StructProperty")
+    if r.i32() != 1 or r.fstr() != "Guid" or r.i32() != 1:
+        raise ValueError("bjpl: expected Guid struct descriptor")
+    if r.fstr() != "/Script/CoreUObject":
+        raise ValueError("bjpl: expected /Script/CoreUObject")
+    if r.i32() != 0 or r.i32() != 16 or r.byte() != 8:
+        raise ValueError("bjpl: unexpected GUID field layout")
     guid = data[r.i:r.i + 16]
     r.i += 16
-    assert r.fstr() == "Name" and r.fstr() == "StrProperty" and r.i32() == 0
+    if r.fstr() != "Name" or r.fstr() != "StrProperty" or r.i32() != 0:
+        raise ValueError("bjpl: expected Name StrProperty")
     r.i32()  # name valsize
-    assert r.byte() == 0
+    if r.byte() != 0:
+        raise ValueError("bjpl: expected zero byte before playlist name")
     name = r.fstr()
-    assert r.fstr() == "Songs" and r.fstr() == "ArrayProperty" and r.i32() == 1
-    assert r.fstr() == "ObjectProperty" and r.i32() == 0
+    if r.fstr() != "Songs" or r.fstr() != "ArrayProperty" or r.i32() != 1:
+        raise ValueError("bjpl: expected Songs ArrayProperty")
+    if r.fstr() != "ObjectProperty" or r.i32() != 0:
+        raise ValueError("bjpl: expected ObjectProperty in Songs array")
     r.i32()  # array valsize
-    assert r.byte() == 0
+    if r.byte() != 0:
+        raise ValueError("bjpl: expected zero byte before song refs")
     cnt = r.i32()
     refs = [r.fstr() for _ in range(cnt)]
-    assert r.fstr() == "None"
+    if r.fstr() != "None":
+        raise ValueError("bjpl: expected 'None' sentinel after song refs")
     r.i32()
     tn = r.i32()
     uids = []

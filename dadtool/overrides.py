@@ -2,7 +2,7 @@
 
 Pin values the detector gets wrong once, and every future run respects them.
 Keys = exact ImportedSongs folder name. Recognized fields: tempo, beatOffset,
-startSongOffset, customTempoSections, skip. Any other key (e.g. a note) is
+startSongOffset, endSongOffset, customTempoSections, skip. Any other key (e.g. a note) is
 ignored, so you can annotate freely.
 """
 from __future__ import annotations

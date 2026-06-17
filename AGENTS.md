@@ -8,6 +8,8 @@ challenges, and produces synced `.lrc` lyrics for a companion HUD mod.
 
 Read this first, then `README.md` (user-facing) and `FORMAT.md` (the reverse-engineered save format).
 
+Developer: **Gregory Conroy** — GitHub **@sudravirodhin**.
+
 ---
 
 ## Non-negotiable rules (safety)
@@ -32,6 +34,15 @@ This tool rewrites an **undocumented, live game save**. These are hard constrain
 
 ---
 
+## Workspace & sister project
+- **Repo origin:** `github.com/sudravirodhin/dadtool-importer` (public, MIT).
+- **Sister project:** **Marquee** HUD mod (repo `dadtool-marquee-hud`, fork of DiscoTracker). dadtool
+  is the lyrics **producer**; Marquee is the lyrics **consumer** (display-only). See §Lyrics below.
+- Machine-specific workspace paths (working dir, sister repo, deployed mod location) live in `.env`
+  (git-ignored). Copy `.env.example` → `.env` and fill in your paths.
+
+---
+
 ## Environment / how to run
 - **Windows 11, Python 3.12.** The game dir is resolved **only** in `dadtool/paths.py` (via
   `dad_config.json` or the `DAD_SAVED_DIR` env var); default `%LOCALAPPDATA%\Pagoda\Saved`.
@@ -45,6 +56,36 @@ This tool rewrites an **undocumented, live game save**. These are hard constrain
   cached under `lyrics_lab/models` (git-ignored).
 - Run with `python -m dadtool.cli <command>` (or the `dad.cmd` / `watch.cmd` launchers). Copy
   `dad_config.example.json` → `dad_config.json` and fill in paths/keys.
+- **Local tooling:** `gh` CLI (may not be on shell PATH — call via `& "<path>\gh.exe"` in
+  PowerShell; path in `.env` as `GH_CLI_PATH`). Auth via Git Credential Manager (GCM).
+
+### Config keys (`dad_config.json` — git-ignored)
+
+All paths are **machine-specific**; the file is never committed. Env var overrides where available:
+
+| Key | Purpose | Env var override |
+|-----|---------|------------------|
+| `saved_dir` | Game's `Pagoda\Saved` directory | `DAD_SAVED_DIR` |
+| `game_install_dir` | Game install root (**currently unused by code** — present for future use) | — |
+| `game_exe` | Path to `Pagoda.exe` (for exe-version detection) | — |
+| `shipping_exe` | Path to `PagodaSteam-Win64-Shipping.exe` | — |
+| `steam_appid` | `3404260` | — |
+| `steam_appmanifest` | Path to `appmanifest_3404260.acf` (for build-id detection) | — |
+| `beat_this_python` | Python exe in the `dad-beat` conda env | — |
+| `acoustid_api_key` | **SECRET** — AcoustID API key for fingerprint lookup | — |
+| `fpcalc_path` | Path to the Chromaprint `fpcalc` binary | — |
+| `auto_generate_challenge` | `true` → auto-create a Challenge on every import | — |
+| `lrcgen_python` | Python exe in the lyrics ASR venv | — |
+| `lyrics_cache_dir` | Override for the Marquee mod's lyrics dir | — |
+| `lyrics_model` | Whisper model size (`"large-v3"`) | — |
+| `lyrics_timing_model` | `"auto"` / `"file"` / `"subtract-start-offset"` | — |
+| `auto_generate_lyrics` | `true` → auto-generate lyrics on import | — |
+| `soundtrack_dirs` | List of OST directories for built-in song ASR | — |
+| `version_baseline` | `{steam_build_id, exe_file_version, captured}` — the validated build | — |
+
+> **Note:** `lyrics.py` derives the lyrics cache dir from `lyrics_cache_dir` (explicit override) or
+> `game_install_dir` (auto-derived) in the config. At least one must be set for lyrics commands
+> to work.
 
 ---
 
@@ -54,18 +95,30 @@ This tool rewrites an **undocumented, live game save**. These are hard constrain
 - `tracker.py` — beat_this subprocess + librosa fallback + a beat cache keyed by audio hash.
 - `analyzer.py` — tempo/phase via a gap-robust line fit; drift-criterion section detection; tempo
   floor (smallest integer multiple to reach ≥120 BPM, applied per-section); a noise guard that drops
-  bogus sections.
+  bogus sections. `AnalysisResult` dataclass + `from_dict()` classmethod for cache round-tripping.
+- `preview.py` — click-track offline preview for ear-checking sync.
 - `writer.py` — `AnalysisResult` → `Meta.json`, behind the safety gates (version check, canary,
   backup, verify-by-reread).
 - `importer.py` — transcode + fabricate a full `ImportedSongs` entry (no in-game importer needed);
   `reimport()` (swap audio, keep identity/uniqueId); dedup-on-import by source MD5 (`DuplicateSongError`).
 - `daemon.py` — the `watch` loop (auto-import from `audio/pending/`); `--limit N` for chunked runs.
-- `metadata.py` — AcoustID fingerprint + tag naming; `display_label()` returns `"Artist - Title"`.
+- `metadata.py` — AcoustID fingerprint (primary) + embedded tag fallback + cleaned filename;
+  `display_label()` returns `"Artist - Title"`.
 - `loudness.py` — two-pass ffmpeg loudnorm to −14 LUFS (idempotent).
 - `playlist.py` — `.bjpl` Unreal binary codec + per-album auto-grouping.
 - `challenge.py` — procedural Challenge generator (spectral profile → waves/bosses/mods/arena).
+  Tags sourced from `challenge_vocab.json`.
 - `lyrics.py` — synced-lyrics producer for the companion Marquee mod (see below).
-- `meta / snapshot / backup / overrides / sources / gamestate` — helpers.
+- `cache.py` — analysis cache keyed by source-audio hash; entries invalidated by `ANALYZER_VERSION`
+  or `FORMAT.md` hash changes.
+- `gamestate.py` — game-running detection (process check) + version detection (Steam build id / exe
+  version). `refuse_if_running()` helper for the common guard pattern.
+- `meta.py` — `Meta.json` read/write with encoding sniffing (UTF-8 / UTF-16LE+BOM by content).
+- `backup.py` — timestamped full `Saved` dir backup; verified by file-count + byte-count comparison.
+- `overrides.py` — per-song pinned fixes from `overrides.json` (tempo, beatOffset, offsets, sections,
+  skip).
+- `sources.py` — source-audio filing into `audio/processed/`.
+- `snapshot.py` — hash-manifest of the Saved tree for format reverse-engineering.
 - `scripts/beat_this_worker.py`, `scripts/lrcgen_worker.py` — the two isolated-env workers.
 
 ---
@@ -107,6 +160,10 @@ UE4SS Lua mod) is the **consumer**. Contract:
   nudges/proofing across a built-in key drift; otherwise re-fetch via `--queue`.
 - Output is always a **draft** (ASR mishears sung lyrics); the human proofs. Commands:
   `dad lyrics <song>` | `--all [--purge] [--retry-missing]` | `--queue [--limit N]` | `--remap` | `--dry-run`.
+- **Marquee crash (sister repo issue #2):** UE4SS `ACCESS_VIOLATION` during gameplay on build
+  `CL-29008`. Root cause is the UE4SS loader, NOT Marquee's Lua. Lyrics data works; the mod's display
+  is blocked until a newer UE4SS build. Boot-and-quit still populates the catalog manifest. See the
+  sister repo's AGENTS.md §5 for the full diagnosis — **do not re-investigate**.
 
 ---
 
@@ -124,7 +181,8 @@ UE4SS Lua mod) is the **consumer**. Contract:
   displaying it; check both sides.
 - **Windows gotchas:** every subprocess call passes `encoding="utf-8", errors="replace"` (the default
   cp1252 reader thread crashes on non-ASCII paths). PowerShell mangles `[bracket]` paths and non-ASCII
-  args to native exes — route through Python. Prefer absolute paths.
+  args to native exes — route through Python. Prefer absolute paths. PowerShell calls to `gh.exe`
+  must use `& "full\path"` syntax (it's not on PATH).
 
 ---
 
@@ -133,6 +191,9 @@ UE4SS Lua mod) is the **consumer**. Contract:
   `cache/`, `tools/` (the fpcalc binary), `snapshots/`, `.venv/`, and
   `lyrics_lab/{models,out,backup_existing}` + `reference_lyrics*.txt` (copyright). Keep it that way —
   no secrets, binaries, large downloads, or generated lyrics in the repo.
+- **Commits:** end commit messages with `Co-Authored-By: Gemini 3.5 Flash <noreply@google.com>`.
+- **Issues:** enabled. Use labels for categorization. Reference sister repo issues cross-repo when
+  applicable (e.g. `sudravirodhin/dadtool-marquee-hud#2`).
 - Companion repo: `dadtool-marquee-hud` (the HUD mod / lyrics consumer; MIT, fork of upstream `hort`).
 - Validated against Steam build `23332779`; *Dead as Disco* UPDATE 1 is build `23726858` (writes stay
   gated until re-validated — see rule 5). `revalidate` then `restore` is the post-patch flow.

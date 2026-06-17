@@ -50,7 +50,7 @@ def get(cache: dict, key: str):
     return cache.get("entries", {}).get(key)
 
 
-def fresh(entry: dict, build_id, fmt_hash, analyzer_version=None) -> bool:
+def fresh(entry: dict | None, build_id, fmt_hash, analyzer_version=None) -> bool:
     return (bool(entry) and entry.get("game_build_id") == build_id
             and entry.get("format_hash") == fmt_hash
             and entry.get("analyzer_version") == analyzer_version)

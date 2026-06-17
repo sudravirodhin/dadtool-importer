@@ -1,7 +1,8 @@
 """Look up a clean Song Name + Artist for an audio file, to fill the in-game menu.
 
-Order: embedded tags (mutagen) -> cleaned filename. An online fingerprint lookup
-(AcoustID/MusicBrainz) is an optional future layer for messy YouTube-rip names.
+Order: AcoustID audio fingerprint (primary, via MusicBrainz) -> embedded tags
+(mutagen) -> cleaned filename. The fingerprint lookup yields canonical names even
+for messy YouTube-rip filenames; tags and filename splitting are fallbacks.
 """
 from __future__ import annotations
 

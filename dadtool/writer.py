@@ -32,7 +32,6 @@ REQUIRED_KEYS = {
 }
 
 CANARY_SONG = "Overkill (Acoustic Version) - Colin Hay"
-TEMPO_FLOOR = 120.0  # keep in sync with analyzer.TEMPO_FLOOR
 
 
 def to_float32(x: float) -> float:

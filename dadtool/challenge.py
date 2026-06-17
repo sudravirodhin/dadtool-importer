@@ -20,6 +20,7 @@ from . import backup, gamestate, meta, paths
 
 WEIGHTS = {"regular": 1.0, "bouncer": 2.5, "boss": 5.0}
 
+# Tags sourced from challenge_vocab.json (harvested from game content)
 # Confirmed placeable enemy tags (from sample challenges). Regulars share weight 1.0;
 # the dict values are how the wave's regulars are split across types (for variety).
 REGULAR_TAGS = {
@@ -61,6 +62,9 @@ DEFAULT_ARENA = ARENAS[0]
 BASE_CLEAR_S = 2.0        # seconds to clear one regular at REF_TEMPO; TUNE by one playtest
 REF_TEMPO = 130.0
 LEEWAY_WAVES = 2
+SECS_PER_WAVE = 8.5       # validated average wave duration
+MIN_WAVES = 8
+MAX_WAVES = 24
 DIFF_SCALE = {"easy": 0.6, "normal": 1.0, "hard": 1.5}
 
 
@@ -139,7 +143,7 @@ def plan(prof: dict, difficulty: str = "auto") -> dict:
     tf = prof["tempo"] / REF_TEMPO
     dur = prof["duration"]
     peak = float(np.max(prof["curve"])) if len(prof["curve"]) else 1.0
-    target = max(8, min(24, round(dur / 8.5)))   # bounded wave count at the validated ~8.5s/wave
+    target = max(MIN_WAVES, min(MAX_WAVES, round(dur / SECS_PER_WAVE)))   # bounded wave count
     base_units = max(2.0, (dur / target) * tf / BASE_CLEAR_S)  # regulars/wave to fill song at normal
     waves = []
     for i in range(target):
@@ -224,7 +228,7 @@ def write_challenge(name: str, challenge: dict, *, do_backup: bool = True,
         backup.backup_saved(reason=f"challenge '{name}'")
     dest = paths.saved_dir() / "UserChallenges" / name / "Meta.json"
     dest.parent.mkdir(parents=True, exist_ok=True)
-    meta.write_meta(dest, challenge, "utf-8")  # write_meta picks UTF-16 if content is non-ASCII
+    meta.write_meta(dest, challenge, "utf-8")  # "utf-8" base; write_meta promotes to UTF-16+BOM if non-ASCII content
     verified = meta.read_meta(dest)[0].get("challengeName") == name
     return {"name": name, "file": str(dest), "waves": len(challenge["enemyWaves"]),
             "verified": verified}

@@ -1,12 +1,4 @@
-"""Command-line entry point for dadtool.
-
-Phase 1 commands only so far:
-  status                 show resolved paths, game-running state, version
-  snapshot <label>       write a sha256 manifest of the Saved tree
-  diff <before> <after>  diff two snapshot JSON files
-
-Run from the repo root:  python -m dadtool.cli <command>
-"""
+"""CLI entry point for dadtool — command-line beat-sync & song importer for Dead as Disco."""
 from __future__ import annotations
 
 import argparse
@@ -15,6 +7,8 @@ import sys
 from pathlib import Path
 
 from . import gamestate, paths, snapshot
+
+ACOUSTID_RATE_LIMIT_S = 0.34   # AcoustID free tier ~3 req/s
 
 
 def cmd_status(_args) -> None:
@@ -317,7 +311,7 @@ def cmd_rename(args) -> None:
         mj = base / song / "Meta.json"
         data, enc = meta.read_meta(mj)
         title, artist = metadata.from_acoustid(base / song / "Audio.ogg")
-        time.sleep(0.34)  # AcoustID free tier ~3 req/s
+        time.sleep(ACOUSTID_RATE_LIMIT_S)
         if not title:
             nomatch += 1
             continue
@@ -380,7 +374,6 @@ def cmd_relabel(args) -> None:
 
 def cmd_normalize(args) -> None:
     import os
-    from pathlib import Path as _P
     from . import backup, gamestate, loudness, meta
     running = gamestate.is_game_running()
     if running and not args.dry_run:
@@ -394,7 +387,7 @@ def cmd_normalize(args) -> None:
         if not ogg.exists():
             continue
         data, _ = meta.read_meta(base / song / "Meta.json")
-        src = _P(data.get("originalAudioFilePath", ""))
+        src = Path(data.get("originalAudioFilePath", ""))
         norm_src = src if src.exists() else ogg  # normalize from the original source if present
         try:
             cur = float(loudness.measure(str(ogg))["input_i"])  # current Audio.ogg loudness

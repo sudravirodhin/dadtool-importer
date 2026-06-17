@@ -12,6 +12,7 @@ The song appears in-game, pre-synced, on the next launch.
 from __future__ import annotations
 
 import hashlib
+import logging
 import random
 import shutil
 import tempfile
@@ -54,7 +55,7 @@ def transcode_to_ogg(src, dest_ogg, target_sr: int = 48000, normalize: bool = Tr
         raise RuntimeError(f"ffmpeg transcode failed: {proc.stderr.strip()[-300:]}")
 
 
-def existing_unique_ids() -> set:
+def existing_unique_ids() -> set[int]:
     ids = set()
     base = paths.imported_songs_dir()
     if base.exists():
@@ -66,7 +67,7 @@ def existing_unique_ids() -> set:
                     if isinstance(data.get("uniqueId"), int):
                         ids.add(data["uniqueId"])
                 except Exception:  # noqa: BLE001
-                    pass
+                    logging.debug("corrupt Meta.json skipped: %s", mj)
     return ids
 
 
@@ -87,7 +88,7 @@ class DuplicateSongError(Exception):
         super().__init__(f"duplicate of already-imported song {existing_folder!r}")
 
 
-def existing_hashes() -> dict:
+def existing_hashes() -> dict[str, str]:
     """Map {originalAudioFileHash: folder} over imported songs, for dedup-on-import."""
     out: dict = {}
     base = paths.imported_songs_dir()
@@ -101,8 +102,32 @@ def existing_hashes() -> dict:
                     if h:
                         out[str(h)] = d.name
                 except Exception:  # noqa: BLE001
-                    pass
+                    logging.debug("corrupt Meta.json skipped: %s", mj)
     return out
+
+
+def _run_auto_extras(folder: str, song_name: str) -> None:
+    """Auto-generate a procedural Challenge and/or DRAFT .lrc if configured.
+
+    Called after both fresh imports and reimports; never fails the caller."""
+    cfg = paths.load_config()
+    # Auto-generate a procedural Challenge for the song.
+    if cfg.get("auto_generate_challenge"):
+        try:
+            from . import challenge as _ch
+            cname = _ch.auto_name(song_name)
+            cmeta, _ = _ch.build_challenge(folder, cname)
+            _ch.write_challenge(cname, cmeta, do_backup=False, allow_running=True)
+        except Exception:  # noqa: BLE001  — never fail the import/reimport
+            pass
+    # Auto-generate a DRAFT .lrc (ASR; needs human proofing) for the song.
+    if cfg.get("auto_generate_lyrics"):
+        try:
+            from . import lyrics as _ly
+            if _ly.mod_installed():            # sister mod: only write if it's installed
+                _ly.generate(folder, allow_running=True)
+        except Exception:  # noqa: BLE001  — never fail the import/reimport
+            pass
 
 
 def external_import(source_path, song_name=None, artist=None, folder=None,
@@ -161,25 +186,7 @@ def external_import(source_path, song_name=None, artist=None, folder=None,
     verified = all(back.get(k) == new.get(k) for k in
                    ("tempo", "beatOffset", "customTempoSections", "startSongOffset", "endSongOffset"))
 
-    # Optionally auto-generate a procedural Challenge for the new song (appends a new
-    # UserChallenges entry; never fails the import if it hiccups).
-    if paths.load_config().get("auto_generate_challenge"):
-        try:
-            from . import challenge as _ch
-            cname = _ch.auto_name(disp_name)
-            cmeta, _ = _ch.build_challenge(folder, cname)
-            _ch.write_challenge(cname, cmeta, do_backup=False, allow_running=True)
-        except Exception:  # noqa: BLE001
-            pass
-
-    # Optionally auto-generate a DRAFT .lrc (ASR; needs human proofing) for the new song.
-    if paths.load_config().get("auto_generate_lyrics"):
-        try:
-            from . import lyrics as _ly
-            if _ly.mod_installed():            # sister mod: only write if it's installed
-                _ly.generate(folder, allow_running=True)
-        except Exception:  # noqa: BLE001
-            pass
+    _run_auto_extras(folder, disp_name)
 
     return {
         "folder": folder, "songName": song_name, "artist": artist,
@@ -249,24 +256,7 @@ def reimport(source_path, folder, *, do_backup: bool = True,
         back.get(k) == new.get(k) for k in
         ("tempo", "beatOffset", "customTempoSections", "startSongOffset", "endSongOffset")))
 
-    # Refresh the auto challenge so it embeds the new sync (mirrors import behavior).
-    if paths.load_config().get("auto_generate_challenge"):
-        try:
-            from . import challenge as _ch
-            cname = _ch.auto_name(old.get("songName") or folder)
-            cmeta, _ = _ch.build_challenge(folder, cname)
-            _ch.write_challenge(cname, cmeta, do_backup=False, allow_running=True)
-        except Exception:  # noqa: BLE001
-            pass
-
-    # Refresh the DRAFT .lrc too (new audio -> new timing), if lyrics auto-gen is on.
-    if paths.load_config().get("auto_generate_lyrics"):
-        try:
-            from . import lyrics as _ly
-            if _ly.mod_installed():            # sister mod: only write if it's installed
-                _ly.generate(folder, allow_running=True)
-        except Exception:  # noqa: BLE001
-            pass
+    _run_auto_extras(folder, old.get("songName") or folder)
 
     return {
         "folder": folder, "songName": old.get("songName"),

@@ -95,18 +95,21 @@ def get_beats(audio_path, use_cache: bool = True) -> dict:
     audio-content hash, so the neural model runs at most once per song even across
     analyzer-logic changes."""
     key = None
+    cache = None
     if use_cache:
         try:
             key = _audio_key(audio_path)
         except OSError:
             key = None
         if key:
-            cached = _load_beat_cache().get(key)
+            cache = _load_beat_cache()
+            cached = cache.get(key)
             if cached:
                 return cached
     result = beats_from_beat_this(audio_path) or beats_from_librosa(audio_path)
     if key and result:
-        cache = _load_beat_cache()
+        if cache is None:
+            cache = _load_beat_cache()
         cache[key] = result
         paths.CACHE_DIR.mkdir(parents=True, exist_ok=True)
         BEAT_CACHE.write_text(json.dumps(cache), encoding="utf-8")

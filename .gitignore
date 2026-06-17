@@ -10,6 +10,7 @@ venv/
 
 # Local machine config (game paths differ per machine)
 /dad_config.json
+/.env
 
 # Click-track previews and other generated audio
 /previews/

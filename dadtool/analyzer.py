@@ -25,7 +25,7 @@ ANALYSIS_SR = 22050
 HOP = 512
 TEMPO_FLOOR = 120.0
 TEMPO_WARN_ABOVE = 200.0
-ANALYZER_VERSION = 9  # bump when analysis logic changes; invalidates the cache
+ANALYZER_VERSION = 10  # bump when analysis logic changes; invalidates the cache
 
 
 @dataclass
@@ -47,11 +47,7 @@ class AnalysisResult:
     confidence: float
     flags: list
     n_beats: int
-    n_onsets: int
-    coverage: float
     grid_residual_ms: float
-    contrast: float
-    tempo_prominence: float
     method: str = "beats"
 
     def to_dict(self) -> dict:
@@ -67,11 +63,37 @@ class AnalysisResult:
 
         return {k: _native(v) for k, v in d.items()}
 
+    @classmethod
+    def from_dict(cls, d: dict) -> 'AnalysisResult':
+        """Reconstruct an AnalysisResult from a serialized dict (as produced by to_dict).
+        Uses sensible defaults so older cached dicts missing newer fields work gracefully."""
+        return cls(
+            path=d.get("path", ""),
+            duration_s=d.get("duration_s", 0.0),
+            sample_rate=d.get("sample_rate", 22050),
+            detected_bpm=d.get("detected_bpm", 0.0),
+            final_bpm=d.get("final_bpm", 0.0),
+            tempo_multiplier=d.get("tempo_multiplier", 1),
+            above_200_warning=d.get("above_200_warning", False),
+            first_downbeat_s=d.get("first_downbeat_s", 0.0),
+            beat_period_s=d.get("beat_period_s", 0.0),
+            start_time_s=d.get("start_time_s", 0.0),
+            end_trim_s=d.get("end_trim_s", 0.0),
+            consistency=d.get("consistency", "CONSISTENT"),
+            bpm_range=tuple(d.get("bpm_range", (0.0, 0.0))),
+            bpm_sections=d.get("bpm_sections", []),
+            confidence=d.get("confidence", 0.0),
+            flags=d.get("flags", []),
+            n_beats=d.get("n_beats", 0),
+            grid_residual_ms=d.get("grid_residual_ms", 0.0),
+            method=d.get("method", "beats"),
+        )
+
 
 # ---------------------------------------------------------------------------
 # line fitting over beat times (global tempo/phase + drift)
 # ---------------------------------------------------------------------------
-def _reconstruct(seg: np.ndarray):
+def _reconstruct(seg: np.ndarray) -> tuple[float, float, np.ndarray, np.ndarray]:
     """Gap-robust grid fit: round each inter-beat interval to whole grid steps so a
     skipped/added beat doesn't corrupt the index, then least-squares. Returns
     (period, phase, idx, residuals)."""
@@ -113,7 +135,7 @@ def clean_beats(beats: np.ndarray) -> np.ndarray:
     return np.array(kept)
 
 
-def local_bpm_curve(beats: np.ndarray, win: int = 8):
+def local_bpm_curve(beats: np.ndarray, win: int = 8) -> tuple[np.ndarray, np.ndarray]:
     ibi = np.diff(beats)
     if ibi.size < 2:
         return beats[:1], np.array([])
@@ -215,7 +237,7 @@ def detect_sections(beats, downbeats, dev=3.0, min_run=8, improve_ms=15.0):
     return sections
 
 
-def apply_tempo_floor(bpm: float):
+def apply_tempo_floor(bpm: float) -> tuple[float, int, bool]:
     if bpm <= 0:
         return bpm, 1, False
     mult = 1
@@ -247,7 +269,7 @@ def detect_silence_bounds(y, sr, rel_thresh=0.03, min_lead=1.0, min_trail=1.5, m
     return float(start_s), float(end_trim)
 
 
-def compute_confidence(residual_ms, n_beats, source):
+def compute_confidence(residual_ms: float, n_beats: int, source: str) -> float:
     if residual_ms <= 12:
         base = 0.92
     elif residual_ms <= 22:
@@ -270,8 +292,8 @@ def _empty_result(path, duration, sr, flags, source):
         path=path, duration_s=round(duration, 3), sample_rate=sr, detected_bpm=0.0,
         final_bpm=0.0, tempo_multiplier=1, above_200_warning=False, first_downbeat_s=0.0,
         beat_period_s=0.0, start_time_s=0.0, end_trim_s=0.0, consistency="CONSISTENT", bpm_range=(0.0, 0.0),
-        bpm_sections=[], confidence=0.0, flags=flags, n_beats=0, n_onsets=0, coverage=0.0,
-        grid_residual_ms=0.0, contrast=0.0, tempo_prominence=0.0, method=source,
+        bpm_sections=[], confidence=0.0, flags=flags, n_beats=0,
+        grid_residual_ms=0.0, method=source,
     )
 
 
@@ -353,6 +375,5 @@ def analyze(path: str) -> AnalysisResult:
         end_trim_s=round(end_trim_s, 3), consistency=consistency,
         bpm_range=(round(bpm_range[0], 2), round(bpm_range[1], 2)), bpm_sections=sections,
         confidence=round(confidence, 3), flags=flags, n_beats=int(beats.size),
-        n_onsets=int(beats.size), coverage=0.0, grid_residual_ms=round(rms_final, 2),
-        contrast=0.0, tempo_prominence=0.0, method=source,
+        grid_residual_ms=round(rms_final, 2), method=source,
     )
