@@ -63,7 +63,7 @@ def mod_installed(out=None) -> bool:
 
 def purge_cache(out_dir=None) -> dict:
     """Back up the ENTIRE lyrics cache, then delete every generated lyric file (.lrc/.miss/
-    .offset/.txt/.words.json) so a regenerate starts clean. KEEPS .gitkeep and _requests.jsonl
+    .offset/.txt/.words.json) so a regenerate starts clean. KEEPS .gitkeep, _requests.jsonl, and _catalog.jsonl
     (the latter is the mod's built-in queue, needed by `--queue` after a purge). For a
     deliberate full rebuild: the old .offset nudges are cleared too (they were calibrated to
     the old, possibly mistimed lyrics) -- the full backup preserves them if needed."""
@@ -77,7 +77,7 @@ def purge_cache(out_dir=None) -> dict:
     shutil.copytree(out, backup)
     removed = 0
     for p in out.iterdir():
-        if p.is_file() and p.name not in (".gitkeep", "_requests.jsonl"):
+        if p.is_file() and p.name not in (".gitkeep", "_requests.jsonl", "_catalog.jsonl"):
             p.unlink()
             removed += 1
     return {"backup": str(backup), "removed": removed}
@@ -217,9 +217,14 @@ def _find_soundtrack(title: str, dirs) -> "Path | None":
 
 
 def _read_queue(out: Path) -> list[dict]:
-    """Parse the mod's _requests.jsonl, dedup by key (the mod appends per session),
-    preferring the entry with the richest metadata (a non-empty artist, then more fields)."""
-    reqfile = out / "_requests.jsonl"
+    """Parse Marquee's lyrics manifest -- the full per-load `_catalog.jsonl` (every song,
+    rewritten each game load), falling back to the legacy per-session `_requests.jsonl`.
+    Dedup by key, preferring the entry with the richest metadata (non-empty artist, then more
+    fields). process_queue filters to `not isImported` and skips keys that already have a
+    `.lrc`/`.miss`, so handing it the whole catalog just lets that skip find the gaps."""
+    reqfile = out / "_catalog.jsonl"           # Marquee f3d6b76+: full catalog manifest
+    if not reqfile.exists():
+        reqfile = out / "_requests.jsonl"      # fallback: legacy per-session queue
     if not reqfile.exists():
         return []
     best: dict = {}
