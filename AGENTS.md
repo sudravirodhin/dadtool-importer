@@ -195,6 +195,5 @@ UE4SS Lua mod) is the **consumer**. Contract:
 - **Issues:** enabled. Use labels for categorization. Reference sister repo issues cross-repo when
   applicable (e.g. `sudravirodhin/dadtool-marquee-hud#2`).
 - Companion repo: `dadtool-marquee-hud` (the HUD mod / lyrics consumer; MIT, fork of upstream `hort`).
-- Validated against Steam build `23332779`; *Dead as Disco* UPDATE 1 is build `23726858` (writes stay
-  gated until re-validated — see rule 5). `revalidate` then `restore` is the post-patch flow.
+- Validated against Steam build `23726858` (UPDATE 1, 2026-06-16). `revalidate` then `restore` is the post-patch flow.
 - Not affiliated with or endorsed by Brain Jar Games.

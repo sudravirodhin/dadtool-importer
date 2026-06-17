@@ -14,8 +14,7 @@ full song.
 > It ships with safety gates — refuses to write while the game is running, backs up the
 > whole save folder before every write, checks the game build + a format canary, and
 > verifies each write by re-reading — but you use it at your own risk. **Last validated against
-> Steam build `23332779`** (before *Dead as Disco* UPDATE 1, 2026-06-16); the newer build
-> `23726858` is **not yet re-validated** — the built-in version gate refuses writes until it is.
+> Steam build `23726858`** (Dead as Disco UPDATE 1, 2026-06-16).
 > **Windows 11 · Python 3.12.**
 
 ## What it does
