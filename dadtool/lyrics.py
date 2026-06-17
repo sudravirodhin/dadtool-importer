@@ -258,6 +258,101 @@ def _read_queue(out: Path) -> list[dict]:
     return [v[1] for v in best.values()]
 
 
+def _find_fmod_bank(key: str) -> Path | None:
+    """Find the .streams.bank file for a built-in song key (e.g. PS_ED_Versus_145)."""
+    if not key.startswith("PS_"):
+        return None
+    bank_name = "MX_" + key[3:]
+    cfg = _cfg()
+    game_install_dir = cfg.get("game_install_dir")
+    if not game_install_dir:
+        return None
+    bank_path = Path(game_install_dir) / "Pagoda" / "Content" / "FMOD" / "Banks" / "Desktop" / f"{bank_name}.streams.bank"
+    if bank_path.exists():
+        return bank_path
+    return None
+
+
+def _unpack_fmod_bank(bank_path: Path, temp_dir: Path, file_prefix: str) -> Path:
+    """Extract the primary audio stream from an FMOD bank to a temp file in temp_dir.
+    Monkeypatches fsb5 dynamically to resolve libvorbis and libogg dependencies
+    using the game's built-in DLLs.
+    """
+    import os
+    import sys
+    import ctypes
+
+    # Preload DLLs from game's Engine directory
+    cfg = _cfg()
+    game_install_dir = cfg.get("game_install_dir")
+    if game_install_dir:
+        game_dir = Path(game_install_dir)
+        vorbis_dll = game_dir / "Engine" / "Binaries" / "ThirdParty" / "Vorbis" / "Win64" / "VS2015" / "libvorbis_64.dll"
+        ogg_dll = game_dir / "Engine" / "Binaries" / "ThirdParty" / "Ogg" / "Win64" / "VS2015" / "libogg_64.dll"
+
+        # Add DLL directories for Windows DLL resolution
+        if sys.platform == 'win32' and hasattr(os, 'add_dll_directory'):
+            if vorbis_dll.exists():
+                os.add_dll_directory(str(vorbis_dll.parent))
+            if ogg_dll.exists():
+                os.add_dll_directory(str(ogg_dll.parent))
+
+        # Preload Ogg DLL so Vorbis can resolve its dependency
+        loaded_ogg = None
+        if ogg_dll.exists():
+            try:
+                loaded_ogg = ctypes.CDLL(str(ogg_dll))
+            except Exception:
+                pass
+
+        # Patch fsb5.utils.load_lib
+        import fsb5.utils
+        original_load_lib = fsb5.utils.load_lib
+
+        def patched_load_lib(*names):
+            for name in names:
+                if name == 'vorbis' and vorbis_dll.exists():
+                    try:
+                        return ctypes.CDLL(str(vorbis_dll))
+                    except Exception:
+                        pass
+                elif name == 'ogg' and ogg_dll.exists():
+                    if loaded_ogg:
+                        return loaded_ogg
+                    try:
+                        return ctypes.CDLL(str(ogg_dll))
+                    except Exception:
+                        pass
+            return original_load_lib(*names)
+
+        fsb5.utils.load_lib = patched_load_lib
+
+    # Import fsb5 and extract
+    import fsb5
+
+    with open(bank_path, "rb") as f:
+        data = f.read()
+
+    fsb_offset = data.find(b"FSB5")
+    if fsb_offset == -1:
+        raise ValueError("No FSB5 magic header found in bank file")
+
+    fsb_file = fsb5.FSB5(data[fsb_offset:])
+    if not fsb_file.samples:
+        raise ValueError("No audio samples found in FMOD bank")
+
+    sample = fsb_file.samples[0]
+    audio_data = fsb_file.rebuild_sample(sample)
+
+    ext = fsb_file.get_sample_extension()
+    if not ext.startswith("."):
+        ext = "." + ext
+
+    out_path = temp_dir / f"{file_prefix}{ext}"
+    out_path.write_bytes(audio_data)
+    return out_path
+
+
 def process_queue(out_dir=None, *, include_imported: bool = False, force: bool = False,
                   dry_run: bool = False, allow_running: bool = False, limit: int = 0) -> dict:
     """Process the Marquee catalog (_catalog.jsonl, falling back to legacy _requests.jsonl):
@@ -283,9 +378,14 @@ def process_queue(out_dir=None, *, include_imported: bool = False, force: bool =
     if dry_run:
         rows = []
         for e in todo:
+            key = str(e.get("key"))
             audio = _find_soundtrack(e.get("title") or e.get("songName") or "", st_dirs)
-            rows.append((str(e.get("key")), _label(e),
-                         f"OST:{audio.name}" if audio else "online-or-miss"))
+            if audio:
+                label = f"OST:{audio.name}"
+            else:
+                bank_path = _find_fmod_bank(key)
+                label = f"FMOD:{bank_path.name}" if bank_path else "online-or-miss"
+            rows.append((key, _label(e), label))
         return {"requests": len(entries), "todo": len(todo), "ok": 0, "miss": 0, "songs": rows}
     if not allow_running and gamestate.is_game_running():
         raise RuntimeError("game is running; refusing to write")
@@ -317,21 +417,50 @@ def process_queue(out_dir=None, *, include_imported: bool = False, force: bool =
             continue
         # no online lyrics -> ASR the soundtrack file if we have the built-in audio
         audio = _find_soundtrack(title, st_dirs)
+        is_temp_audio = False
+        bank_path = None
+        if not audio:
+            bank_path = _find_fmod_bank(key)
+            if bank_path:
+                ck = str(bank_path)
+                if ck in ost_cache:
+                    # Already cached from previous extraction
+                    audio = bank_path
+                else:
+                    try:
+                        temp_dir = paths.CACHE_DIR
+                        temp_dir.mkdir(parents=True, exist_ok=True)
+                        audio = _unpack_fmod_bank(bank_path, temp_dir, f"temp_{key}")
+                        is_temp_audio = True
+                    except Exception as ex:
+                        print(f"Warning: Failed to extract FMOD bank for {key}: {ex}")
+                        audio = None
+
         if audio:
-            ck = str(audio)
-            if ck in ost_cache:
-                data = ost_cache[ck]                       # reuse: this OST file already ASR'd
-            else:
-                try:
-                    data = _run_worker(audio, title, artist, "off", model)  # reference off -> pure ASR
-                except Exception:  # noqa: BLE001
-                    data = None
-                if data:
-                    ost_cache[ck] = data
-                    _save_ost_cache(ost_cache)             # persist so later chunks skip re-ASR
+            ck = str(bank_path) if bank_path else str(audio)
+            data = None
+            try:
+                if ck in ost_cache:
+                    data = ost_cache[ck]                       # reuse: this file already ASR'd
+                else:
+                    try:
+                        data = _run_worker(audio, title, artist, "off", model)  # reference off -> pure ASR
+                    except Exception:  # noqa: BLE001
+                        data = None
+                    if data:
+                        ost_cache[ck] = data
+                        _save_ost_cache(ost_cache)             # persist so later chunks skip re-ASR
+            finally:
+                if is_temp_audio and audio and audio.exists():
+                    try:
+                        audio.unlink()
+                    except Exception as ex:
+                        print(f"Warning: Failed to delete temporary audio file {audio}: {ex}")
+
             if data and not data.get("instrumental") and data.get("lines"):
+                source_lbl = "built-in FMOD" if bank_path else "built-in OST"
                 _write_no_bom(lrc_p, _format_lrc(title, artist, data["lines"],
-                                                 "dadtool ASR (built-in OST) - DRAFT"))
+                                                 f"dadtool ASR ({source_lbl}) - DRAFT"))
                 _write_no_bom(out / f"{key}.txt", (data.get("transcript") or "") + "\n")
                 if miss_p.exists():
                     miss_p.unlink()
@@ -340,7 +469,7 @@ def process_queue(out_dir=None, *, include_imported: bool = False, force: bool =
                 # flag if the OST cut's length differs from the in-game cut -> timing may be off
                 songs.append((key, _label(e), "ASR?" if (dur and abs(d2 - dur) > 5) else "ASR"))
                 continue
-        _write_no_bom(miss_p, "no online lyrics; not in soundtrack (or instrumental)\n")
+        _write_no_bom(miss_p, "no online lyrics; not in soundtrack/FMOD (or instrumental)\n")
         miss += 1
         songs.append((key, _label(e), "MISS"))
     return {"requests": len(entries), "todo": len(todo), "ok": ok, "miss": miss, "songs": songs}
