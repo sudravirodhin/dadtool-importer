@@ -17,6 +17,10 @@ full song.
 > Steam build `23726858`** (Dead as Disco UPDATE 1, 2026-06-16).
 > **Windows 11 · Python 3.12.**
 
+## Companion Mod
+
+This tool is designed to work hand-in-hand with the **[Marquee HUD Mod](https://github.com/sudravirodhin/dadtool-marquee-hud)**. While `dadtool` handles offline beat tracking and song importing, Marquee runs in-game to provide synced karaoke lyrics display, career stats tracking, and session leveling.
+
 ## What it does
 
 - **Writes beat-sync directly** into each song's `Meta.json` — tempo, beat offset,
