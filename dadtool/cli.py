@@ -798,7 +798,7 @@ def cmd_lyrics(args) -> None:
         raise SystemExit(f"Marquee mod lyrics dir not found ({out}); install the mod or pass --out <dir>")
     if args.queue:
         if args.dry_run:
-            res = lyrics.process_queue(args.out, force=args.force, dry_run=True, limit=args.limit or 0)
+            res = lyrics.process_queue(args.out, force=args.force, dry_run=True, limit=args.limit or 0, transliterate=args.romaji)
             print(f"{res['todo']} built-in song(s) to fetch (of {res['requests']} queued):")
             for k, label, st in res["songs"]:
                 print(f"  {label:42} {st}")
@@ -806,7 +806,7 @@ def cmd_lyrics(args) -> None:
             print("dry-run: nothing written")
             return
         try:
-            res = lyrics.process_queue(args.out, force=args.force, limit=args.limit or 0)
+            res = lyrics.process_queue(args.out, force=args.force, limit=args.limit or 0, transliterate=args.romaji)
         except RuntimeError as e:
             raise SystemExit(str(e))
         for k, label, st in res["songs"]:
@@ -879,7 +879,8 @@ def cmd_lyrics(args) -> None:
                 break
             try:
                 r = lyrics.generate(folder, reference=args.reference, timing=args.timing,
-                                    model=args.model, out_dir=args.out, allow_running=True)
+                                    model=args.model, out_dir=args.out, allow_running=True,
+                                    transliterate=args.romaji)
                 if r.get("instrumental"):
                     miss += 1
                     print(f"  [{i}/{len(todo)}] MISS {folder[:48]}")
@@ -903,7 +904,7 @@ def cmd_lyrics(args) -> None:
         print(f"would generate -> {out / (lyrics.song_key(m) + '.lrc')}  ({a} - {t})")
         return
     r = lyrics.generate(folder, reference=args.reference, timing=args.timing,
-                        model=args.model, out_dir=args.out)
+                        model=args.model, out_dir=args.out, transliterate=args.romaji)
     if r.get("instrumental"):
         print(f"instrumental: wrote {r['out']} (.miss; no lyrics)")
         return
@@ -1086,6 +1087,8 @@ def main(argv=None) -> None:
                     help="rename an orphaned <oldkey>.lrc to a newly-queued key when their [ti:]/[ar:] "
                          "match -- preserves F9/F10 .offset + proofing across a key change (then --queue the rest)")
     ly.add_argument("--limit", type=int, help="with --all, cap how many are processed")
+    ly.add_argument("--romaji", action="store_true",
+                    help="transliterate Japanese Kanji/Kana to Romaji (Hepburn) and other non-ASCII languages to Latin ASCII")
     ly.add_argument("--dry-run", action="store_true")
     ly.set_defaults(func=cmd_lyrics)
 

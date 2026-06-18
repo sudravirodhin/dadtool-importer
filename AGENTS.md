@@ -150,11 +150,12 @@ UE4SS Lua mod) is the **consumer**. Contract:
 - **Pipeline.** Online-first (LRClib duration-matched with an 8-second tolerance, then syncedlyrics multi-provider) → ASR fallback (faster-whisper, **VAD off**, drop stock-phrase hallucinations, drop cross-language lines) → `.miss` if instrumental/unavailable. Built-ins LRClib lacks can be ASR'd from the **OST** (`soundtrack_dirs` config, cached per OST file in `cache/lyrics_ost_asr.json`) or extracted directly from FMOD bank files (`MX_<key>.streams.bank` under `Pagoda/Content/FMOD/Banks/Desktop/`) via `fsb5` and dynamic ctypes patching of the game's native `libogg` and `libvorbis` DLLs.
 - **Manifest.** Marquee dumps a full per-load catalog of every song to `…\data\lyrics\_catalog.jsonl` (fields `key/artist/title/songName/durationSec/isImported`). `lyrics._read_queue()` reads it (falls back to the legacy per-session `_requests.jsonl`); `process_queue` filters `not isImported` and skips keys that already have a `.lrc`/`.miss`, so the full manifest self-finds the gaps.
 - **Validation.** `scripts/revalidate_lyrics.py` validates the entire `.lrc` cache against duration-matched online sources, with support for auto-overwriting mismatches (like ASR drafts or wrong variants) when run with `--fix`.
+- **Transliteration.** Non-Latin lyrics can be automatically transliterated using the `--romaji` flag (or by setting `"transliterate_lyrics": true` in `dad_config.json`). This uses `pykakasi` to convert Japanese Kanji/Kana to Hepburn Romaji, and `anyascii` to convert other non-ASCII languages (e.g. Cyrillic) to standard Latin ASCII characters.
 - **Never touch `<key>.offset`** — that is the player's live F9/F10/F11 timing nudge. `--remap` renames
   an orphaned `<oldkey>.{lrc,txt,words.json,offset}` → new key (matched by `[ti:]`/`[ar:]`) to preserve
   nudges/proofing across a built-in key drift; otherwise re-fetch via `--queue`.
 - Output is always a **draft** (ASR mishears sung lyrics); the human proofs. Commands:
-  `dad lyrics <song>` | `--all [--purge] [--retry-missing]` | `--queue [--limit N]` | `--remap` | `--dry-run`.
+  `dad lyrics <song>` | `--all [--purge] [--retry-missing] [--romaji]` | `--queue [--limit N]` | `--remap` | `--dry-run`.
 - **Marquee crash (sister repo issue #2):** UE4SS `ACCESS_VIOLATION` during gameplay on build
   `CL-29008`. Root cause is the UE4SS loader, NOT Marquee's Lua. Lyrics data works; the mod's display
   is blocked until a newer UE4SS build. Boot-and-quit still populates the catalog manifest. See the
@@ -190,5 +191,5 @@ UE4SS Lua mod) is the **consumer**. Contract:
 - **Issues:** enabled. Use labels for categorization. Reference sister repo issues cross-repo when
   applicable (e.g. `sudravirodhin/dadtool-marquee-hud#2`).
 - Companion repo: `dadtool-marquee-hud` (the HUD mod / lyrics consumer; MIT, fork of upstream `hort`).
-- Validated against Steam build `23726858` (UPDATE 1, 2026-06-16). `revalidate` then `restore` is the post-patch flow.
+- Validated against Steam build `23778631` (UPDATE 1 patch, 2026-06-17). `revalidate` then `restore` is the post-patch flow.
 - Not affiliated with or endorsed by Brain Jar Games.

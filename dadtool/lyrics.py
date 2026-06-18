@@ -354,7 +354,8 @@ def _unpack_fmod_bank(bank_path: Path, temp_dir: Path, file_prefix: str) -> Path
 
 
 def process_queue(out_dir=None, *, include_imported: bool = False, force: bool = False,
-                  dry_run: bool = False, allow_running: bool = False, limit: int = 0) -> dict:
+                  dry_run: bool = False, allow_running: bool = False, limit: int = 0,
+                  transliterate: bool = False) -> dict:
     """Process the Marquee catalog (_catalog.jsonl, falling back to legacy _requests.jsonl):
     fetch LRClib lyrics for BUILT-IN songs (which dadtool can't import). Writes <key>.lrc
     (synced, RAW timing -- built-ins have no known trim, so the player's F9/F10 fine-tunes)
@@ -366,6 +367,7 @@ def process_queue(out_dir=None, *, include_imported: bool = False, force: bool =
     model = _cfg().get("lyrics_model") or "large-v3"
     st_dirs = _cfg().get("soundtrack_dirs") or []
     ost_cache = _load_ost_cache()   # {ost_path: worker_data} -> ASR each OST file once, reuse for variants
+    eff_transliterate = transliterate or _cfg().get("transliterate_lyrics", False)
     entries = [e for e in _read_queue(out) if include_imported or not e.get("isImported")]
     todo = [e for e in entries if force or not (
         (out / f"{e.get('key')}.lrc").exists() or (out / f"{e.get('key')}.miss").exists())]
@@ -409,7 +411,10 @@ def process_queue(out_dir=None, *, include_imported: bool = False, force: bool =
             if not text.endswith("\n"):
                 text += "\n"
             tags = "".join(f"[{k}:{v}]\n" for k, v in (("ti", title), ("ar", artist)) if v)
-            _write_no_bom(lrc_p, f"{tags}[by:dadtool (LRClib, built-in)]\n{text}")
+            lrc_text = f"{tags}[by:dadtool (LRClib, built-in)]\n{text}"
+            if eff_transliterate:
+                lrc_text = transliterate_lrc(lrc_text)
+            _write_no_bom(lrc_p, lrc_text)
             if miss_p.exists():
                 miss_p.unlink()
             ok += 1
@@ -459,6 +464,11 @@ def process_queue(out_dir=None, *, include_imported: bool = False, force: bool =
 
             if data and not data.get("instrumental") and data.get("lines"):
                 source_lbl = "built-in FMOD" if bank_path else "built-in OST"
+                if eff_transliterate:
+                    for l in data["lines"]:
+                        l["text"] = transliterate_line(l["text"])
+                    if data.get("transcript"):
+                        data["transcript"] = "\n".join(transliterate_line(ln) for ln in data["transcript"].splitlines())
                 _write_no_bom(lrc_p, _format_lrc(title, artist, data["lines"],
                                                  f"dadtool ASR ({source_lbl}) - DRAFT"))
                 _write_no_bom(out / f"{key}.txt", (data.get("transcript") or "") + "\n")
@@ -621,6 +631,78 @@ def _backup_existing(path: Path) -> None:
         (BACKUP_DIR / f"{path.name}.{ts}.bak").write_bytes(path.read_bytes())
 
 
+_KAKASI = None
+
+
+def _get_kakasi():
+    global _KAKASI
+    if _KAKASI is None:
+        import pykakasi
+        _KAKASI = pykakasi.kakasi()
+    return _KAKASI
+
+
+def is_japanese(text: str) -> bool:
+    # Check for Hiragana, Katakana, or CJK Unified Ideographs (Kanji)
+    return any(re.search(r'[\u3040-\u309f\u30a0-\u30ff\u4e00-\u9faf]', char) for char in text)
+
+
+def transliterate_line(line: str) -> str:
+    """Convert Japanese Kanji/Kana to Romaji and other non-ASCII languages to Latin ASCII."""
+    import anyascii
+
+    k = _get_kakasi()
+    tokens = k.convert(line)
+    result_parts = []
+    current_non_ja = ""
+
+    for item in tokens:
+        orig = item['orig']
+        hepburn = item['hepburn']
+
+        if is_japanese(orig):
+            if current_non_ja:
+                result_parts.append(anyascii.anyascii(current_non_ja))
+                current_non_ja = ""
+            result_parts.append(hepburn)
+        else:
+            current_non_ja += orig
+
+    if current_non_ja:
+        result_parts.append(anyascii.anyascii(current_non_ja))
+
+    raw_joined = " ".join(result_parts)
+    cleaned = re.sub(r' +', ' ', raw_joined)
+    return cleaned
+
+
+def transliterate_lrc(text: str) -> str:
+    """Apply transliteration to an entire LRC block, preserving timestamps and tag formats."""
+    out_lines = []
+    for line in text.splitlines():
+        # Match metadata tag: [ti:Title]
+        meta_m = re.match(r'^\s*\[([a-zA-Z]+):(.*)\]\s*$', line)
+        if meta_m:
+            tag, val = meta_m.group(1), meta_m.group(2)
+            trans_val = transliterate_line(val)
+            out_lines.append(f"[{tag}:{trans_val}]")
+            continue
+
+        # Match timed lyric: [01:23.45] lyric text
+        time_m = re.match(r'^\s*((?:\[\d{1,2}:\d{2}(?:\.\d{1,3})?\])+)(.*)$', line)
+        if time_m:
+            stamps = time_m.group(1)
+            lyric_text = time_m.group(2)
+            trans_lyric = transliterate_line(lyric_text)
+            out_lines.append(f"{stamps}{trans_lyric}")
+            continue
+
+        # Fallback
+        out_lines.append(transliterate_line(line))
+
+    return "\n".join(out_lines) + "\n"
+
+
 def _write_no_bom(path: Path, text: str) -> None:
     path.write_text(text, encoding="utf-8", newline="\n")  # utf-8 (no BOM), LF endings
 
@@ -637,7 +719,8 @@ def _format_lrc(title: str, artist: str, lines: list[dict], by: str = BY_TAG) ->
 
 
 def generate(folder: str, *, reference: str = "auto", timing: str | None = None,
-             model: str | None = None, out_dir=None, allow_running: bool = False) -> dict:
+             model: str | None = None, out_dir=None, allow_running: bool = False,
+             transliterate: bool = False) -> dict:
     """Generate (or refresh) the .lrc for an imported song folder. Writes into the mod
     cache (or out_dir). Refuses while the game is running unless allow_running."""
     if not allow_running:
@@ -663,6 +746,7 @@ def generate(folder: str, *, reference: str = "auto", timing: str | None = None,
     start_off = float(m.get("startSongOffset") or 0.0)
 
     data = _run_worker(audio, title, artist, reference, model)
+    eff_transliterate = transliterate or _cfg().get("transliterate_lyrics", False)
 
     out.mkdir(parents=True, exist_ok=True)
     lrc_p = out / f"{key}.lrc"
@@ -685,6 +769,14 @@ def generate(folder: str, *, reference: str = "auto", timing: str | None = None,
                   if timing == "auto" else timing)
     lines = data["lines"]
     words = data.get("words") or []
+    if eff_transliterate:
+        for l in lines:
+            l["text"] = transliterate_line(l["text"])
+        for w in words:
+            w["word"] = transliterate_line(w["word"])
+        if data.get("transcript"):
+            data["transcript"] = "\n".join(transliterate_line(ln) for ln in data["transcript"].splitlines())
+
     if eff_timing == "subtract-start-offset":
         for l in lines:
             l["t"] = max(0.0, round(l["t"] - start_off, 2))

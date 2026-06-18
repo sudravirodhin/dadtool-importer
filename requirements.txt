@@ -10,6 +10,8 @@ imageio-ffmpeg     # bundles ffmpeg (transcode + two-pass loudnorm) — no syste
 pyacoustid         # AcoustID fingerprint lookup; also needs the Chromaprint `fpcalc` binary
 mutagen            # read embedded tags as a naming fallback
 fsb5               # FMOD streams.bank audio extraction (built-in song ASR)
+pykakasi           # Japanese Kanji/Kana to Romaji transliteration
+anyascii           # Non-ASCII text transliteration to Latin ASCII
 
 # NOTE: the beat tracker (beat_this) is NOT installed here. It runs in a SEPARATE
 # conda env because it needs PyTorch — see the README "Setup" section:

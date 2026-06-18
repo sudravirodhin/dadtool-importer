@@ -18,7 +18,7 @@ full song.
 > It ships with safety gates — refuses to write while the game is running, backs up the
 > whole save folder before every write, checks the game build + a format canary, and
 > verifies each write by re-reading — but you use it at your own risk. **Last validated against
-> Steam build `23726858`** (Dead as Disco UPDATE 1, 2026-06-16).
+> Steam build `23778631`** (Dead as Disco UPDATE 1 patch, 2026-06-17).
 > **Windows 11 · Python 3.12.**
 
 ## Companion Mod
@@ -97,7 +97,7 @@ Run through the venv (or the bundled `dad.cmd` / `watch.cmd` launchers):
 | `challenge generate "<song>"` | generate + write a Challenge (`--difficulty`, `--boss`/`--no-boss`, `--arena`) |
 | `challenge sync` | generate auto challenges for the whole library (`--purge`, `--dry-run`) |
 | `watch` | daemon: auto-import audio dropped into `audio/pending/` (`--once`, `--interval N`) |
-| `lyrics <song>` \| `--all` \| `--queue [--limit N]` \| `--remap` | synced .lrc lyrics for the Marquee companion mod (`--purge`, `--retry-missing`, `--dry-run`) |
+| `lyrics <song>` \| `--all` \| `--queue [--limit N]` \| `--remap` | synced .lrc lyrics for the Marquee companion mod (`--purge`, `--retry-missing`, `--romaji`, `--dry-run`) |
 | `normalize` | LUFS-normalize every `Audio.ogg` to −14 (`--force`) |
 | `rename` | set Song Name/Artist from AcoustID for all songs (`--dry-run`) |
 | `relabel` | rewrite every Song Name to `Artist - Title` so the in-game list sorts by artist (`--dry-run`) |
@@ -296,6 +296,7 @@ The synced lyrics pipeline generates `.lrc` lyrics for the **Marquee companion H
   - Pre-loads the game's built-in Ogg and Vorbis DLLs (`libogg_64.dll` and `libvorbis_64.dll`) from the engine binaries directory (`Engine/Binaries/ThirdParty/`) using dynamic ctypes patching.
   - Rebuilds and extracts the raw Vorbis audio stream from FMOD's `FSB5` container using the `fsb5` library without requiring system-wide audio package dependencies.
   - Feeds the extracted file to `faster-whisper` ASR to generate a timed `.lrc` draft.
+- **Romaji & ASCII Transliteration**: With the `--romaji` flag (or by setting `"transliterate_lyrics": true` in `dad_config.json`), non-Latin lyrics (like Japanese Hiragana/Katakana/Kanji and Russian Cyrillic) are automatically transliterated. Japanese text is converted to readable Hepburn Romaji (using `pykakasi`), and other non-ASCII languages are transliterated to Latin ASCII (using `anyascii`).
 - **Lyrics Revalidation Tool**: You can revalidate the entire cache of cached `.lrc` files against duration-matched online sources using `scripts/revalidate_lyrics.py`.
 
 </details>

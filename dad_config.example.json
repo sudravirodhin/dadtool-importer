@@ -14,10 +14,11 @@
   "lyrics_model": "large-v3",
   "lyrics_timing_model": "auto",
   "auto_generate_lyrics": false,
+  "transliterate_lyrics": false,
   "soundtrack_dirs": ["D:\\SteamLibrary\\steamapps\\music\\Dead as Disco Soundtrack Vol 1"],
   "version_baseline": {
-    "steam_build_id": "23726858",
-    "exe_file_version": "++brainjar+release-CL-29008",
-    "captured": "2026-06-16"
+    "steam_build_id": "23778631",
+    "exe_file_version": "++brainjar+release-CL-29112",
+    "captured": "2026-06-17"
   }
 }
