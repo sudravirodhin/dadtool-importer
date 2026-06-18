@@ -57,6 +57,9 @@ def normalize(t):
 def is_hallucination(text):
     n = normalize(text)
     if not n:
+        # If original text had letters/digits but normalize wiped them out, it's a non-ASCII script
+        if any(c.isalnum() for c in text):
+            return False
         return True
     if n in STOCK:
         return True
