@@ -138,6 +138,32 @@ All paths are **machine-specific**; the file is never committed. Env var overrid
 
 ---
 
+## Custom Challenges & Enemy Pools
+The custom challenge generator ([challenge.py](file:///F:/dead_as_disco_song_import/dadtool/challenge.py)) uses abstract wave plans mapped to concrete gameplay tags to write custom challenge sidecars (`UserChallenges/<name>/Meta.json`).
+
+### Enemy Tag Harvesting & Verification
+Modern UE5 builds bundle assets in IoStore container formats (`.ucas` / `.utoc`). Because UE5 splits name tables into individual token chunks, contiguous gameplay tags must be verified using raw in-memory scanning of `Pagoda-Windows.ucas`.
+- **Regular Enemy Pool (`REGULAR_TAGS`):**
+  - `Entity.Character.Enemy.Grunt.Mosher` (weight 0.35) — Main melee grunt.
+  - `Entity.Character.Enemy.Grunt.Stan.Default` (weight 0.15) — Standard guard grunt.
+  - `Entity.Character.Enemy.Grunt.Stan.Low` (weight 0.10) — Low-health stan variant.
+  - `Entity.Character.Enemy.Grunt.Echo` (weight 0.10) — High-mobility dodge grunt.
+  - `Entity.Character.Enemy.Guard.Shield` (weight 0.12) — Shield-bearing blocker.
+  - `Entity.Character.Enemy.Guard.Baton` (weight 0.10) — Baton-equipped melee guard.
+  - `Entity.Character.Enemy.Ranged.Fanatic` (weight 0.08) — Range throwing enemy (corrected from previous inference `Grunt.Fanatic` by `.ucas` binary signature analysis).
+- **Boss Enemy Pool (`BOSS_TAGS`):**
+  - `Entity.Character.Enemy.Boss.Rebel`, `Entity.Character.Enemy.Boss.Doll`, `Entity.Character.Enemy.Boss.Shred`, `Entity.Character.Enemy.Boss.Prophet`.
+  - `Entity.Character.Enemy.Boss.BigDoll` (added in UPDATE 1, verified in `.ucas`).
+- **Unused/Internal Entities:**
+  - `BP_Enemy_Homunculi` / `BT_Enemy_Homunculi` (no confirmed placeable gameplay tag found; used internally).
+
+### Modifier Guidelines
+- **DoubleTime:** Speeds up the track and chart.
+  - *Safety constraint:* Never apply to fast songs (BPM >= 175). Speeding them up results in 350+ BPM, which is unplayable.
+  - *Current logic:* Applied exclusively as a tempo booster to slow/chill songs (BPM < 130) on normal/hard difficulty (difficulty scale >= 1.0) to keep them engaging.
+
+---
+
 ## Lyrics + the Marquee sister mod
 dadtool is the lyrics **producer**; the **Marquee** HUD mod (companion repo `dadtool-marquee-hud`, a
 UE4SS Lua mod) is the **consumer**. Contract:

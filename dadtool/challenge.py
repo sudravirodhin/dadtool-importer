@@ -24,15 +24,18 @@ WEIGHTS = {"regular": 1.0, "bouncer": 2.5, "boss": 5.0}
 # Confirmed placeable enemy tags (from sample challenges). Regulars share weight 1.0;
 # the dict values are how the wave's regulars are split across types (for variety).
 REGULAR_TAGS = {
-    "Entity.Character.Enemy.Grunt.Mosher": 0.50,
-    "Entity.Character.Enemy.Grunt.Stan.Default": 0.20,
+    "Entity.Character.Enemy.Grunt.Mosher": 0.35,
+    "Entity.Character.Enemy.Grunt.Stan.Default": 0.15,
+    "Entity.Character.Enemy.Grunt.Stan.Low": 0.10,
     "Entity.Character.Enemy.Grunt.Echo": 0.10,
     "Entity.Character.Enemy.Guard.Shield": 0.12,
-    "Entity.Character.Enemy.Guard.Baton": 0.08,
+    "Entity.Character.Enemy.Guard.Baton": 0.10,
+    "Entity.Character.Enemy.Ranged.Fanatic": 0.08,
 }
 BOUNCER_TAG = "Entity.Character.Enemy.Boss.Bouncer"
 BOSS_TAGS = ["Entity.Character.Enemy.Boss.Rebel", "Entity.Character.Enemy.Boss.Doll",
-             "Entity.Character.Enemy.Boss.Shred", "Entity.Character.Enemy.Boss.Prophet"]
+             "Entity.Character.Enemy.Boss.Shred", "Entity.Character.Enemy.Boss.Prophet",
+             "Entity.Character.Enemy.Boss.BigDoll"]
 def _mod(folder, name):
     return f"/Game/Pagoda/DataMod/{folder}/DA_DataMod_{name}.DA_DataMod_{name}"
 
@@ -101,7 +104,8 @@ def _select_mods(prof: dict, scale: float) -> list[str]:
     inten = prof["overall"]
     if scale >= 1.25 or inten > 0.5:
         mods.append("EnemyIncreasedHealth")
-    if prof["tempo"] >= 175 and scale >= 1.0:
+    # Reconsidered: speed up slow tracks rather than making fast tracks unplayable
+    if prof["tempo"] < 130 and scale >= 1.0:
         mods.append("DoubleTime")
     if scale <= 0.75 and inten < 0.4:
         mods.append("IncreasedFeverRegen_50Percent")

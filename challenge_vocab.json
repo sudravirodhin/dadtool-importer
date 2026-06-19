@@ -6,20 +6,20 @@
   "enemyTags_confirmed": [
     "Entity.Character.Enemy.Grunt.Mosher",
     "Entity.Character.Enemy.Grunt.Stan.Default",
+    "Entity.Character.Enemy.Grunt.Stan.Low",
     "Entity.Character.Enemy.Grunt.Echo",
     "Entity.Character.Enemy.Guard.Shield",
-    "Entity.Character.Enemy.Guard.Baton"
-  ],
-  "enemyTags_inferred_TOCONFIRM": [
-    "Entity.Character.Enemy.Grunt.Fanatic",
-    "Entity.Character.Enemy.Grunt.Stan.Low",
+    "Entity.Character.Enemy.Guard.Baton",
+    "Entity.Character.Enemy.Ranged.Fanatic",
     "Entity.Character.Enemy.Ranged.DollClone",
+    "Entity.Character.Enemy.Boss.Bouncer",
     "Entity.Character.Enemy.Boss.Doll",
     "Entity.Character.Enemy.Boss.BigDoll",
     "Entity.Character.Enemy.Boss.Prophet",
     "Entity.Character.Enemy.Boss.Rebel",
     "Entity.Character.Enemy.Boss.Shred"
   ],
+  "enemyTags_inferred_TOCONFIRM": [],
 
   "enemyBlueprints": [
     "BP_Enemy_Base", "BP_Enemy_Grunt_Base", "BP_Enemy_Mosher", "BP_Enemy_Mosher_Goober",
