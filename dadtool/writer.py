@@ -44,9 +44,10 @@ def tempo_json_value(bpm: float):
     return int(round(f)) if abs(f - round(f)) < 1e-6 else f
 
 
-def beat_offset_ms(first_downbeat_s: float, final_bpm: float) -> int:
+def beat_offset_ms(first_downbeat_s: float, final_bpm: float, start_time_s: float = 0.0) -> int:
     period = 60.0 / final_bpm
-    return int(round((first_downbeat_s % period) * 1000.0))
+    relative_downbeat = first_downbeat_s - start_time_s
+    return int(round((relative_downbeat % period) * 1000.0))
 
 
 def build_meta(existing: dict, result=None, overrides: dict | None = None) -> dict:
@@ -62,6 +63,14 @@ def build_meta(existing: dict, result=None, overrides: dict | None = None) -> di
         if cand.exists() and not Path(oap).exists():
             data["originalAudioFilePath"] = str(cand).replace("\\", "/")
 
+    if "startSongOffset" in overrides:
+        start_off = overrides["startSongOffset"]
+    elif result is not None:
+        start_off = round(float(result.start_time_s), 3)
+    else:
+        start_off = existing.get("startSongOffset", 0.0)
+    data["startSongOffset"] = start_off
+
     if "tempo" in overrides:
         final_bpm = float(overrides["tempo"])
     elif result is not None:
@@ -73,7 +82,7 @@ def build_meta(existing: dict, result=None, overrides: dict | None = None) -> di
     if "beatOffset" in overrides:
         data["beatOffset"] = int(overrides["beatOffset"])
     elif result is not None:
-        data["beatOffset"] = beat_offset_ms(result.first_downbeat_s, final_bpm)
+        data["beatOffset"] = beat_offset_ms(result.first_downbeat_s, final_bpm, float(start_off))
 
     if "customTempoSections" in overrides:
         data["customTempoSections"] = overrides["customTempoSections"]
@@ -87,14 +96,9 @@ def build_meta(existing: dict, result=None, overrides: dict | None = None) -> di
             ]
             data["tempo"] = tempo_json_value(secs[0]["tempo"])
             if "beatOffset" not in overrides:
-                data["beatOffset"] = beat_offset_ms(result.first_downbeat_s, secs[0]["tempo"])
+                data["beatOffset"] = beat_offset_ms(result.first_downbeat_s, secs[0]["tempo"], float(start_off))
         # else: no detected sections -> PRESERVE existing customTempoSections
         # (the song's current value, e.g. sections you added in-game), never wipe.
-
-    if "startSongOffset" in overrides:
-        data["startSongOffset"] = overrides["startSongOffset"]
-    elif result is not None:
-        data["startSongOffset"] = round(float(result.start_time_s), 3)
 
     if "endSongOffset" in overrides:
         data["endSongOffset"] = overrides["endSongOffset"]
