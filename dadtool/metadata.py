@@ -16,6 +16,47 @@ _JUNK = [
     r"\bHQ\b", r"\bHD\b", r"\bMV\b",
 ]
 
+_COMMON_WORDS = {
+    "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for", "of", "with",
+    "by", "from", "up", "about", "into", "over", "after", "you", "me", "him", "her",
+    "it", "us", "them", "my", "your", "his", "its", "our", "their", "this", "that",
+    "these", "those", "is", "am", "are", "was", "were", "be", "been", "being", "have",
+    "has", "had", "do", "does", "did", "will", "would", "shall", "should", "can", "could",
+    "may", "might", "must", "official", "lyrics", "audio", "video", "remix", "version",
+    "track", "unknown", "song", "music", "untitled", "export", "rip", "file", "sound",
+    "mp3", "flac", "wav", "ogg", "m4a"
+}
+
+
+def _extract_keywords(text: str) -> set[str]:
+    """Split text into lowercase alphanumeric words, filtering out common/short/generic words and digits."""
+    cleaned = re.sub(r'[_.\-–—]', ' ', text)
+    cleaned = re.sub(r'\d+', ' ', cleaned)
+    words = re.findall(r'[a-zA-Z]+', cleaned.lower())
+    return {w for w in words if len(w) > 2 and w not in _COMMON_WORDS}
+
+
+def _is_acoustid_plausible(ac_title: str, ac_artist: str, filename_stem: str, tag_title: str | None = None, tag_artist: str | None = None) -> bool:
+    """Return False if the AcoustID match contradicts specific keywords in the filename or tags."""
+    ac_title_words = _extract_keywords(ac_title)
+    ac_artist_words = _extract_keywords(ac_artist)
+    
+    fn_words = _extract_keywords(filename_stem)
+    t_words = _extract_keywords(tag_title or "")
+    ta_words = _extract_keywords(tag_artist or "")
+    source_words = fn_words | t_words | ta_words
+
+    if ac_title_words & source_words:
+        return True
+
+    if ac_artist_words & source_words:
+        other_source_words = source_words - ac_artist_words
+        if not other_source_words:
+            return True
+        return False
+
+    return not source_words
+
 
 def from_tags(path) -> tuple[str | None, str | None]:
     try:
@@ -65,6 +106,16 @@ def from_acoustid(path) -> tuple[str | None, str | None]:
     if not votes:
         return None, None
     (title, artist), _ = votes.most_common(1)[0]
+
+    # Plausibility check against filename/embedded tags to prevent false matches
+    try:
+        t, a = from_tags(path)
+        stem = Path(path).stem
+        if not _is_acoustid_plausible(title, artist or "", stem, t, a):
+            return None, None
+    except Exception:  # noqa: BLE001
+        pass
+
     return title, (artist or None)
 
 
