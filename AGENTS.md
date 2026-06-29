@@ -180,7 +180,11 @@ UE4SS Lua mod) is the **consumer**. Contract:
 - **Never touch `<key>.offset`** — that is the player's live F9/F10/F11 timing nudge. `--remap` renames
   an orphaned `<oldkey>.{lrc,txt,words.json,offset}` → new key (matched by `[ti:]`/`[ar:]`) to preserve
   nudges/proofing across a built-in key drift; otherwise re-fetch via `--queue`.
-- Output is always a **draft** (ASR mishears sung lyrics); the human proofs. Commands:
+- **Manual Proofing & Version Sync.** Output is always a **draft** (ASR mishears sung lyrics, and online databases can contain wrong album variants/arrangements). To improve sync quality:
+  1. For songs with complex or differing lyric arrangements (e.g. live, acoustic, deluxe), do not rely on auto-matched online timings. Run ASR model transcription first (`--reference off`) to get audio-accurate timing anchors.
+  2. Use online lyrics text as a spelling reference (`--reference "Artist - Title"`) to correct ASR spelling errors and hallucinations while maintaining the ASR's exact timestamps.
+  3. The developer/player should manually proof and time-correct the `.lrc` files afterward to ensure perfect alignment.
+  Commands:
   `dad lyrics <song>` | `--all [--purge] [--retry-missing] [--romaji]` | `--queue [--limit N]` | `--remap` | `--dry-run`.
 - **Marquee crash (sister repo issue #2):** UE4SS `ACCESS_VIOLATION` during gameplay on build
   `CL-29008`. Root cause is the UE4SS loader, NOT Marquee's Lua. Lyrics data works; the mod's display
