@@ -36,6 +36,9 @@ def _extract_keywords(text: str) -> set[str]:
     return {w for w in words if len(w) > 2 and w not in _COMMON_WORDS}
 
 
+_VARIANT_KEYWORDS = {"live", "remix", "acoustic", "instrumental", "karaoke", "cover", "tribute", "demo"}
+
+
 def _is_acoustid_plausible(ac_title: str, ac_artist: str, filename_stem: str, tag_title: str | None = None, tag_artist: str | None = None) -> bool:
     """Return False if the AcoustID match contradicts specific keywords in the filename or tags."""
     ac_title_words = _extract_keywords(ac_title)
@@ -46,6 +49,15 @@ def _is_acoustid_plausible(ac_title: str, ac_artist: str, filename_stem: str, ta
     ta_words = _extract_keywords(tag_artist or "")
     source_words = fn_words | t_words | ta_words
 
+    if not source_words:
+        return True
+
+    # Reject version variant mismatches (e.g. matching a live/remix track to a studio track)
+    ac_variants = (ac_title_words | ac_artist_words) & _VARIANT_KEYWORDS
+    source_variants = source_words & _VARIANT_KEYWORDS
+    if ac_variants != source_variants:
+        return False
+
     if ac_title_words & source_words:
         return True
 
@@ -55,7 +67,7 @@ def _is_acoustid_plausible(ac_title: str, ac_artist: str, filename_stem: str, ta
             return True
         return False
 
-    return not source_words
+    return False
 
 
 def from_tags(path) -> tuple[str | None, str | None]:
