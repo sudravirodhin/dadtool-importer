@@ -420,26 +420,27 @@ def process_queue(out_dir=None, *, include_imported: bool = False, force: bool =
             ok += 1
             songs.append((key, _label(e), "OK"))
             continue
-        # no online lyrics -> ASR the soundtrack file if we have the built-in audio
-        audio = _find_soundtrack(title, st_dirs)
+        # no online lyrics -> ASR the built-in FMOD audio stream or the soundtrack file
+        audio = None
         is_temp_audio = False
-        bank_path = None
+        bank_path = _find_fmod_bank(key)
+        if bank_path:
+            ck = str(bank_path)
+            if ck in ost_cache:
+                # Already cached from previous extraction
+                audio = bank_path
+            else:
+                try:
+                    temp_dir = paths.CACHE_DIR
+                    temp_dir.mkdir(parents=True, exist_ok=True)
+                    audio = _unpack_fmod_bank(bank_path, temp_dir, f"temp_{key}")
+                    is_temp_audio = True
+                except Exception as ex:
+                    print(f"Warning: Failed to extract FMOD bank for {key}: {ex}")
+                    audio = None
+
         if not audio:
-            bank_path = _find_fmod_bank(key)
-            if bank_path:
-                ck = str(bank_path)
-                if ck in ost_cache:
-                    # Already cached from previous extraction
-                    audio = bank_path
-                else:
-                    try:
-                        temp_dir = paths.CACHE_DIR
-                        temp_dir.mkdir(parents=True, exist_ok=True)
-                        audio = _unpack_fmod_bank(bank_path, temp_dir, f"temp_{key}")
-                        is_temp_audio = True
-                    except Exception as ex:
-                        print(f"Warning: Failed to extract FMOD bank for {key}: {ex}")
-                        audio = None
+            audio = _find_soundtrack(title, st_dirs)
 
         if audio:
             ck = str(bank_path) if bank_path else str(audio)
