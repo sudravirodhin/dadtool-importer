@@ -68,10 +68,17 @@ def main():
         
         # 1. Check beatOffset and Tempo alignment
         tempo_game = m.get("tempo", 120)
-        expected_tempo = writer.tempo_json_value(ad["final_bpm"])
+        
+        sections = ad.get("bpm_sections") or []
+        if sections:
+            expected_bpm = sections[0]["tempo"]
+        else:
+            expected_bpm = ad["final_bpm"]
+            
+        expected_tempo = writer.tempo_json_value(expected_bpm)
         
         start_off = float(m.get("startSongOffset") or 0.0)
-        expected_offset = writer.beat_offset_ms(ad["first_downbeat_s"], ad["final_bpm"], start_off)
+        expected_offset = writer.beat_offset_ms(ad["first_downbeat_s"], expected_bpm, start_off)
         offset_game = m.get("beatOffset", 0)
         
         # Allow small +/- 3ms rounding tolerance for offset

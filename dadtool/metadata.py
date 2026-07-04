@@ -29,11 +29,10 @@ _COMMON_WORDS = {
 
 
 def _extract_keywords(text: str) -> set[str]:
-    """Split text into lowercase alphanumeric words, filtering out common/short/generic words and digits."""
+    """Split text into lowercase alphanumeric words, filtering out common/short/generic words and short numbers."""
     cleaned = re.sub(r'[_.\-–—]', ' ', text)
-    cleaned = re.sub(r'\d+', ' ', cleaned)
-    words = re.findall(r'[a-zA-Z]+', cleaned.lower())
-    return {w for w in words if len(w) > 2 and w not in _COMMON_WORDS}
+    words = re.findall(r'[a-zA-Z0-9]+', cleaned.lower())
+    return {w for w in words if len(w) > 2 and w not in _COMMON_WORDS and not (w.isdigit() and len(w) < 3)}
 
 
 _VARIANT_KEYWORDS = {"live", "remix", "acoustic", "instrumental", "karaoke", "cover", "tribute", "demo"}
