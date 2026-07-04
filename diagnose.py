@@ -156,17 +156,47 @@ def main():
             
     if not flagged:
         print("All songs are fully aligned, highly confident, and correctly synchronized!")
+        # Clear/write empty report
+        try:
+            Path("C:/Users/Administrator/.gemini/antigravity-cli/brain/ac456087-aacc-47c8-9e0b-b5860f98af79/diagnostics_report.md").write_text("# dead_as_disco Sync & Lyrics Diagnostics Report\n\nAll songs are fully aligned, highly confident, and correctly synchronized!", encoding="utf-8")
+        except Exception:
+            pass
         return
         
     print(f"Found {len(flagged)} song(s) with potential sync, metadata, or lyric issues:\n")
     
+    md = []
+    md.append("# dead_as_disco Sync & Lyrics Diagnostics Report")
+    md.append("")
+    md.append("> [Tailored Diagnostics]")
+    md.append(f"> Scanned **{len(songs)}** imported songs in the library. Found **{len(flagged)}** songs that have potential sync mismatches, low beat tracking confidence, or incorrect version/lyric variants.")
+    md.append("")
+    md.append("## Summary of Diagnostic Recommendations")
+    md.append("1. **Automatic Sync Fixes**: For beatOffset and Tempo mismatches, run:")
+    md.append("   ```powershell")
+    md.append("   python -m dadtool.cli batch")
+    md.append("   ```")
+    md.append("2. **Version / Lyric Mismatches**: For songs flagged with implausible versions, run the corresponding ASR command to regenerate correct lyrics locally.")
+    md.append("")
+    md.append("---")
+    md.append("")
+    md.append("## Flagged Songs")
+    md.append("")
+
     for idx, item in enumerate(flagged, 1):
         print(f"{idx}. [{item['title']}]")
         print(f"   Folder: {item['folder']}")
         print(f"   Beat Confidence: {item['confidence']:.2f} | Grid Residual: {item['residual']:.1f} ms | Cached: {item['is_cached']}")
         print("   Issues:")
+        
+        md.append(f"### {idx}. {item['title']}")
+        md.append(f"- **Folder**: `{item['folder']}`")
+        md.append(f"- **Confidence**: `{item['confidence']:.2f}` | **Grid Residual**: `{item['residual']:.1f} ms`")
+        md.append("- **Issues Found**:")
+        
         for issue in item["issues"]:
             print(f"     - {issue}")
+            md.append(f"  - ❌ {issue}")
             
         # Give exact recommendation on how to fix
         print("   Recommended Fix command:")
@@ -182,13 +212,23 @@ def main():
         if not cmds:
             cmds.append(f"python -m dadtool.cli preview \"{item['folder']}\"  (Ear-check beats)")
             
-        print(f"     { ' && '.join(cmds) }")
+        cmd_str = ' && '.join(cmds)
+        print(f"     {cmd_str}")
         print("-" * 80)
+        
+        md.append("- **Recommended Command to Fix**:")
+        md.append(f"  ```powershell\n  {cmd_str}\n  ```")
+        md.append("")
         
     # Summarize actions
     print("\nSummary of Diagnostic Recommendations:")
     print("  1. Run 'python -m dadtool.cli batch' to automatically fix all beatOffset / sync mismatches.")
     print("  2. For variant/lyric mismatches (e.g. live version matched to studio), run the recommended lyrics command to regenerate them via local ASR.")
+
+    try:
+        Path("C:/Users/Administrator/.gemini/antigravity-cli/brain/ac456087-aacc-47c8-9e0b-b5860f98af79/diagnostics_report.md").write_text("\n".join(md), encoding="utf-8", newline="\n")
+    except Exception:
+        pass
 
 if __name__ == "__main__":
     main()
