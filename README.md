@@ -9,6 +9,12 @@ A Windows CLI that analyzes a track's beat **offline** and writes the sync data
 in-game tap-calibration tool. It can also import songs end to end (transcode →
 auto-named → loudness-normalized → beat-synced), making the in-game importer optional.
 
+While the game has its own built-in auto-BPM estimation and manual tap-calibration,
+**dadtool** handles beat tracking externally with significantly higher precision (using
+transformer neural nets and drift-criterion multi-tempo section fitting). It also integrates
+directly with the companion [Marquee HUD mod](https://github.com/sudravirodhin/dadtool-marquee-hud)
+by fetching and generating synced `.lrc` lyrics with optional Romaji transliteration.
+
 The offline grids land roughly **2× tighter than hand-tapping** and don't drift over a
 full song.
 
@@ -23,16 +29,20 @@ full song.
 
 ## Companion Mod
 
-This tool is designed to work hand-in-hand with the **[Marquee HUD Mod](https://github.com/sudravirodhin/dadtool-marquee-hud)**. While `dadtool` handles offline beat tracking and song importing, Marquee runs in-game to provide synced karaoke lyrics display, career stats tracking, and session leveling.
+This tool is designed to work hand-in-hand with the **[Marquee HUD Mod](https://github.com/sudravirodhin/dadtool-marquee-hud)**. While `dadtool` handles offline beat tracking, song importing, and lyrics generation, Marquee runs in-game to provide synced karaoke lyrics display, career stats tracking, and session leveling.
 
 ## What it does
 
 - **Writes beat-sync directly** into each song's `Meta.json` — tempo, beat offset,
-  tempo-change sections, and silence trim — replacing manual tap calibration.
+  tempo-change sections, and silence trim — replacing in-game estimation and tap calibration.
 - **Imports songs end to end:** transcodes any audio to the game's 48 kHz Ogg Vorbis,
   fabricates the song folder the game expects, and writes a synced `Meta.json`.
-- **Tracks tempo accurately** with a transformer beat tracker (beat_this), including true
+- **Tracks tempo with high precision** using a transformer beat tracker (beat_this), including true
   downbeats, per-section tempo changes, and automatic half-time-shift correction.
+- **Produces synced `.lrc` lyrics** for the [Marquee companion HUD mod](https://github.com/sudravirodhin/dadtool-marquee-hud)
+  via duration-matched online lookup or local Whisper ASR with romaji transliteration.
+- **Generates custom challenges** procedurally based on audio spectral profiles and intensity curves.
+- **Auto-builds playlists (`.bjpl`)** grouped by album tags.
 - **Names songs** from an AcoustID audio fingerprint (canonical title/artist via
   MusicBrainz), falling back to file tags + filename.
 - **Normalizes loudness** to a consistent −14 LUFS.
